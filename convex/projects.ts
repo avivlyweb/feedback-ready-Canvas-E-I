@@ -50,6 +50,10 @@ export const createProject = mutation({
     ),
     createdAt: v.string(),
     isLocked: v.optional(v.boolean()),
+    studentEmail: v.optional(v.string()),
+    studentName: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    screenshots: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -96,6 +100,10 @@ export const updateProject = mutation({
     ),
     createdAt: v.string(),
     isLocked: v.optional(v.boolean()),
+    studentEmail: v.optional(v.string()),
+    studentName: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    screenshots: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db

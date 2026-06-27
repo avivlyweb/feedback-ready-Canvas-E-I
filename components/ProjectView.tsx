@@ -8,10 +8,11 @@ interface ProjectViewProps {
   project: Project;
   onUpdateProject: (project: Project) => void;
   onGoBack: () => void;
-  reviewer: { email: string; name: string };
+  reviewer?: { email: string; name: string };
+  isReadOnly?: boolean;
 }
 
-const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onGoBack, reviewer }) => {
+const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onGoBack, reviewer, isReadOnly = false }) => {
   const [activePinId, setActivePinId] = useState<string | null>(null);
   const [mode, setMode] = useState<'comment' | 'browse'>('comment');
   const [sidebarWidth, setSidebarWidth] = useState(384); // Default width (24rem)
@@ -94,7 +95,7 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
   }, []);
 
   const handleAddPin = useCallback((x: number, y: number) => {
-    if (project.isLocked) return;
+    if (isReadOnly || project.isLocked) return;
     const newPin: Pin = {
       id: `pin-${Date.now()}`,
       number: project.pins.length + 1,
@@ -106,17 +107,17 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
     const updatedProject = { ...project, pins: [...project.pins, newPin] };
     onUpdateProject(updatedProject);
     setActivePinId(newPin.id);
-  }, [project, onUpdateProject]);
+  }, [project, onUpdateProject, isReadOnly]);
 
   const handleSelectPin = useCallback((pinId: string | null) => {
     setActivePinId(pinId);
   }, []);
 
   const handleAddComment = useCallback((pinId: string, text: string, attachment?: { data: string; name: string; type: string; }) => {
-    if (project.isLocked) return;
+    if (isReadOnly || project.isLocked) return;
     const newComment: CommentType = {
       id: `comment-${Date.now()}`,
-      author: reviewer.name, // Logged-in reviewer name
+      author: reviewer?.name || 'Student', // Logged-in reviewer name
       text,
       timestamp: new Date(),
       attachment,
@@ -130,10 +131,10 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
     });
 
     onUpdateProject({ ...project, pins: updatedPins });
-  }, [project, onUpdateProject, reviewer]);
+  }, [project, onUpdateProject, reviewer, isReadOnly]);
   
   const handleDeleteComment = useCallback((pinId: string, commentId: string) => {
-    if (project.isLocked) return;
+    if (isReadOnly || project.isLocked) return;
 
     if (!window.confirm("Are you sure you want to delete this comment? This action cannot be undone.")) {
       return;
@@ -148,9 +149,10 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
     });
 
     onUpdateProject({ ...project, pins: updatedPins });
-  }, [project, onUpdateProject]);
+  }, [project, onUpdateProject, isReadOnly]);
 
   const handleResolvePin = useCallback((pinId: string) => {
+    if (isReadOnly || project.isLocked) return;
      const updatedPins = project.pins.map(pin => {
       if (pin.id === pinId) {
         return { ...pin, status: pin.status === CommentStatus.OPEN ? CommentStatus.RESOLVED : CommentStatus.OPEN };
@@ -207,6 +209,7 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
           onScreenshotCancel={handleScreenshotCancel}
           onTriggerImageScreenshot={handleTriggerImageScreenshot}
           onTriggerUrlScreenshot={handleTriggerUrlScreenshot}
+          isReadOnly={isReadOnly}
         />
       </div>
       
@@ -234,6 +237,7 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
           onUpdateProject={onUpdateProject}
           onTriggerImageScreenshot={handleTriggerImageScreenshot}
           onTriggerUrlScreenshot={handleTriggerUrlScreenshot}
+          isReadOnly={isReadOnly}
         />
       </div>
     </div>

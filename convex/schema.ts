@@ -33,5 +33,9 @@ export default defineSchema({
     ),
     createdAt: v.string(), // ISO String
     isLocked: v.optional(v.boolean()),
+    studentEmail: v.optional(v.string()),
+    studentName: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    screenshots: v.optional(v.array(v.string())),
   }).index("by_projectId", ["id"]),
 });

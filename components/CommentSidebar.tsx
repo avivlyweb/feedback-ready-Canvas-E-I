@@ -11,11 +11,12 @@ interface CommentSidebarProps {
   onDeleteComment: (pinId: string, commentId: string) => void;
   onResolvePin: (pinId: string) => void;
   activePinId: string | null;
-  onSelectPin: (pinId: string) => void;
+  onSelectPin: (pinId: string | null) => void;
   onGoBack: () => void;
   onUpdateProject: (project: Project) => void;
   onTriggerImageScreenshot: (callback: (attachment: NonNullable<Comment['attachment']>) => void) => void;
   onTriggerUrlScreenshot: (callback: (attachment: NonNullable<Comment['attachment']>) => void) => void;
+  isReadOnly?: boolean;
 }
 
 const formatRelativeTime = (timestamp: Date): string => {
@@ -117,7 +118,7 @@ const ImageViewerModal: React.FC<{
 };
 
 
-const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, onDeleteComment, onResolvePin, activePinId, onSelectPin, onGoBack, onUpdateProject, onTriggerImageScreenshot, onTriggerUrlScreenshot }) => {
+const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, onDeleteComment, onResolvePin, activePinId, onSelectPin, onGoBack, onUpdateProject, onTriggerImageScreenshot, onTriggerUrlScreenshot, isReadOnly = false }) => {
   const [newCommentText, setNewCommentText] = useState('');
   const [attachment, setAttachment] = useState<NonNullable<Comment['attachment']> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -203,30 +204,66 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, 
     <div className="flex flex-col h-full bg-white">
       <div className="p-4 border-b border-slate-200 flex-shrink-0">
         <div className="flex items-center justify-between">
-            <button onClick={onGoBack} className="flex items-center text-sm text-slate-600 hover:text-indigo-600">
+            <button onClick={onGoBack} className="flex items-center text-sm text-slate-600 hover:text-indigo-600 font-semibold">
                 <ArrowLeftIcon className="w-4 h-4 mr-2" />
                 Back to Projects
             </button>
             <div className="flex items-center space-x-2">
-              <button onClick={handleToggleLock} className="p-2 rounded-full hover:bg-slate-100 transition-colors" title={project.isLocked ? "Enable commenting" : "Disable commenting"}>
-                {project.isLocked ? <LockClosedIcon className="w-5 h-5 text-amber-600" /> : <LockOpenIcon className="w-5 h-5 text-slate-500" />}
-              </button>
+              {!isReadOnly && (
+                <button onClick={handleToggleLock} className="p-2 rounded-full hover:bg-slate-100 transition-colors" title={project.isLocked ? "Enable commenting" : "Disable commenting"}>
+                  {project.isLocked ? <LockClosedIcon className="w-5 h-5 text-amber-600" /> : <LockOpenIcon className="w-5 h-5 text-slate-500" />}
+                </button>
+              )}
               <button onClick={handleExportPdf} disabled={isExportingPdf} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-wait" title="Export feedback to PDF">
                 {isExportingPdf ? <SparklesIcon className="w-5 h-5 text-indigo-500 animate-pulse" /> : <DocumentArrowDownIcon className="w-5 h-5 text-slate-500" />}
               </button>
             </div>
         </div>
         <h2 className="text-xl font-bold mt-3 truncate">{project.name}</h2>
-         <div className="flex items-center space-x-2 mt-2">
-            <button onClick={() => setIsAnalysisModalOpen(true)} className="flex items-center text-sm font-semibold bg-purple-100 text-purple-700 py-1 px-3 rounded-full hover:bg-purple-200 transition">
-              <EyeIcon className="w-4 h-4 mr-2"/>
-              Visual Analysis
-            </button>
-            <button onClick={handleGenerateSummary} className="flex items-center text-sm font-semibold bg-indigo-100 text-indigo-700 py-1 px-3 rounded-full hover:bg-indigo-200 transition">
-                <SparklesIcon className="w-4 h-4 mr-2"/>
-                AI Summary
-            </button>
+         {project.studentEmail && (
+          <div className="mt-3 bg-indigo-50/50 border border-indigo-100 rounded-xl p-3 text-xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-extrabold text-indigo-950 uppercase tracking-wider text-[10px]">🎓 Submission Details</span>
+              <span className="text-[10px] text-indigo-600 font-semibold">{project.studentEmail}</span>
+            </div>
+            <div className="text-slate-700 leading-relaxed font-bold">
+              Student Name: <span className="font-medium text-slate-900">{project.studentName}</span>
+            </div>
+            {project.notes && (
+              <div className="mt-2 text-slate-600 bg-white border border-indigo-100/30 rounded-lg p-2 italic leading-relaxed">
+                "{project.notes}"
+              </div>
+            )}
+            {project.screenshots && project.screenshots.length > 0 && (
+              <div className="mt-2.5">
+                <p className="font-bold text-indigo-950 mb-1">Uploaded Screenshots / Files:</p>
+                <div className="flex items-center space-x-1.5 overflow-x-auto py-1">
+                  {project.screenshots.map((dataUrl, idx) => (
+                    <img
+                      key={idx}
+                      src={dataUrl}
+                      alt={`Attachment ${idx + 1}`}
+                      onClick={() => setViewingAttachment({ data: dataUrl, name: `Attachment ${idx + 1}.png`, type: 'image/png' })}
+                      className="w-10 h-10 object-cover rounded border border-slate-200 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all flex-shrink-0"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+         )}
+         {!isReadOnly && (
+           <div className="flex items-center space-x-2 mt-2">
+              <button onClick={() => setIsAnalysisModalOpen(true)} className="flex items-center text-sm font-semibold bg-purple-100 text-purple-700 py-1 px-3 rounded-full hover:bg-purple-200 transition">
+                <EyeIcon className="w-4 h-4 mr-2"/>
+                Visual Analysis
+              </button>
+              <button onClick={handleGenerateSummary} className="flex items-center text-sm font-semibold bg-indigo-100 text-indigo-700 py-1 px-3 rounded-full hover:bg-indigo-200 transition">
+                  <SparklesIcon className="w-4 h-4 mr-2"/>
+                  AI Summary
+              </button>
+            </div>
+         )}
       </div>
 
       <div className="flex-grow overflow-y-auto p-4 space-y-4">
@@ -260,7 +297,7 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, 
                                                 <img src={comment.attachment.data} alt={comment.attachment.name} className="max-w-[100px] max-h-[100px] rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity" />
                                               </div>
                                             )}
-                                            {!project.isLocked && (
+                                            {!project.isLocked && !isReadOnly && (
                                               <button 
                                                 onClick={(e) => { e.stopPropagation(); onDeleteComment(pin.id, comment.id); }}
                                                 className="absolute -top-1 -right-1 p-1 text-slate-400 bg-slate-50 rounded-full hover:text-red-600 hover:bg-slate-200 opacity-0 group-hover:opacity-100 transition-all"
@@ -276,9 +313,11 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, 
                                     )}
                                 </div>
                             </div>
-                            <button onClick={(e) => { e.stopPropagation(); onResolvePin(pin.id)}} className="text-slate-400 hover:text-green-600 ml-2" title="Mark as resolved">
-                                <CheckCircleIcon className="w-5 h-5"/>
-                            </button>
+                            {!isReadOnly && (
+                              <button onClick={(e) => { e.stopPropagation(); onResolvePin(pin.id)}} className="text-slate-400 hover:text-green-600 ml-2" title="Mark as resolved">
+                                  <CheckCircleIcon className="w-5 h-5"/>
+                              </button>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -300,7 +339,7 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, 
         }
       </div>
 
-      {activePinId && !project.isLocked && (
+      {activePinId && !project.isLocked && !isReadOnly && (
         <div className="p-4 border-t border-slate-200 bg-slate-50 flex-shrink-0">
           <form onSubmit={handleCommentSubmit}>
             <textarea

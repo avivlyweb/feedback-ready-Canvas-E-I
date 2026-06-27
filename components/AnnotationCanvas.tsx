@@ -247,6 +247,7 @@ interface AnnotationCanvasProps {
   onScreenshotCancel: () => void;
   onTriggerImageScreenshot: (callback: (attachment: NonNullable<Comment['attachment']>) => void) => void;
   onTriggerUrlScreenshot: (callback: (attachment: NonNullable<Comment['attachment']>) => void) => void;
+  isReadOnly?: boolean;
 }
 
 const viewports = {
@@ -294,7 +295,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   onScreenshot,
   onScreenshotCancel,
   onTriggerImageScreenshot,
-  onTriggerUrlScreenshot
+  onTriggerUrlScreenshot,
+  isReadOnly = false
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -309,7 +311,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       return;
     }
       
-    if (mode === 'comment' && !project.isLocked) {
+    if (mode === 'comment' && !project.isLocked && !isReadOnly) {
       if (canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
         const x = ((e.clientX - rect.left + canvasRef.current.scrollLeft) / canvasRef.current.scrollWidth) * 100;
@@ -419,17 +421,24 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               onDeleteComment={onDeleteComment}
               onResolvePin={onResolvePin}
               onClose={() => onSelectPin(null)}
-              isLocked={!!project.isLocked}
+              isLocked={!!project.isLocked || isReadOnly}
               projectType={project.type}
               onTriggerImageScreenshot={onTriggerImageScreenshot}
               onTriggerUrlScreenshot={onTriggerUrlScreenshot}
             />
         )}
         
-        {project.isLocked && (
+        {project.isLocked && !isReadOnly && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-amber-100 text-amber-800 px-4 py-2 rounded-full text-sm font-semibold flex items-center z-20 shadow-md animate-fade-in-fast">
             <LockClosedIcon className="w-4 h-4 mr-2" />
             Commenting is disabled
+          </div>
+        )}
+
+        {isReadOnly && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-50 border border-indigo-200 text-indigo-700 px-4 py-1.5 rounded-full text-xs font-bold flex items-center z-20 shadow-md animate-fade-in-fast">
+            <LockClosedIcon className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />
+            Student View: Read-Only Feedback
           </div>
         )}
 

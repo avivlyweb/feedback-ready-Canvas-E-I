@@ -260,7 +260,19 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, onCreateProject, onSele
                 <div className="p-4 flex flex-col flex-grow">
                   <h3 onClick={() => onSelectProject(project.id)} className="font-bold text-lg truncate group-hover:text-indigo-600 cursor-pointer">{project.name}</h3>
                   <p className="text-sm text-slate-500 capitalize">{project.type.toLowerCase()}</p>
-                   <time className="text-xs text-slate-400 mt-1">
+                  
+                  {project.studentName && (
+                    <div className="mt-1.5 flex flex-col">
+                      <span className="text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded-md inline-block w-fit">
+                        🎓 Student submission
+                      </span>
+                      <span className="text-xs text-slate-600 font-semibold mt-1 truncate" title={`${project.studentName} (${project.studentEmail})`}>
+                        {project.studentName}
+                      </span>
+                    </div>
+                  )}
+
+                   <time className="text-xs text-slate-400 mt-1 block">
                       {project.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </time>
                   <div className="flex-grow"></div>

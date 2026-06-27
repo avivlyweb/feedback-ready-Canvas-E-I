@@ -37,4 +37,8 @@ export interface Project {
   pins: Pin[];
   createdAt: Date;
   isLocked?: boolean;
+  studentEmail?: string;
+  studentName?: string;
+  notes?: string;
+  screenshots?: string[];
 }
