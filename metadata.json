@@ -1,0 +1,11 @@
+{
+  "name": "CanvasFeedback",
+  "description": "A highly intuitive, powerful, and versatile visual feedback and collaboration platform that supports a wide range of content types and offers advanced features for streamlined project workflows.",
+  "requestFramePermissions": [
+    "camera",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
