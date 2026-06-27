@@ -5,6 +5,7 @@ import ProjectView from './components/ProjectView';
 import { LogoIcon } from './components/icons';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "./convex/_generated/api";
+import { LoginGate } from './components/LoginGate';
 
 const App: React.FC = () => {
   const dbProjects = useQuery(api.projects.getProjects);
@@ -12,7 +13,27 @@ const App: React.FC = () => {
   const updateProjectMutation = useMutation(api.projects.updateProject);
   const deleteProjectMutation = useMutation(api.projects.deleteProject);
 
+  const [reviewer, setReviewer] = useState<{ email: string; name: string } | null>(() => {
+    const saved = localStorage.getItem('esp_reviewer');
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  const handleLoginSuccess = useCallback((email: string, name: string) => {
+    const user = { email, name };
+    localStorage.setItem('esp_reviewer', JSON.stringify(user));
+    setReviewer(user);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('esp_reviewer');
+    setReviewer(null);
+  }, []);
 
   const projects: Project[] = React.useMemo(() => {
     if (!dbProjects) return [];
@@ -98,6 +119,12 @@ const App: React.FC = () => {
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
+  // 1. Force authentication first
+  if (!reviewer) {
+    return <LoginGate onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // 2. Show loading if database is not ready
   if (dbProjects === undefined) {
     return (
       <div className="min-h-screen flex flex-col font-sans">
@@ -130,6 +157,20 @@ const App: React.FC = () => {
               <LogoIcon className="h-8 w-8 text-indigo-600" />
               <h1 className="text-2xl font-bold text-slate-900">CanvasFeedback</h1>
             </div>
+            {reviewer && (
+              <div className="flex items-center space-x-4">
+                <div className="hidden sm:flex flex-col items-end">
+                  <span className="text-sm font-semibold text-slate-800">{reviewer.name}</span>
+                  <span className="text-xs text-slate-500">{reviewer.email}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center justify-center px-3.5 py-1.5 border border-slate-300 hover:border-red-200 rounded-lg text-sm font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50/50 transition-colors focus:outline-none"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -142,6 +183,7 @@ const App: React.FC = () => {
               project={selectedProject}
               onUpdateProject={handleUpdateProject}
               onGoBack={handleGoBackToDashboard}
+              reviewer={reviewer}
             />
           ) : (
             <Dashboard

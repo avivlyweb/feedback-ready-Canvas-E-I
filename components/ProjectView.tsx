@@ -8,9 +8,10 @@ interface ProjectViewProps {
   project: Project;
   onUpdateProject: (project: Project) => void;
   onGoBack: () => void;
+  reviewer: { email: string; name: string };
 }
 
-const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onGoBack }) => {
+const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onGoBack, reviewer }) => {
   const [activePinId, setActivePinId] = useState<string | null>(null);
   const [mode, setMode] = useState<'comment' | 'browse'>('comment');
   const [sidebarWidth, setSidebarWidth] = useState(384); // Default width (24rem)
@@ -115,7 +116,7 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
     if (project.isLocked) return;
     const newComment: CommentType = {
       id: `comment-${Date.now()}`,
-      author: 'User', // In a real app, this would be the logged-in user
+      author: reviewer.name, // Logged-in reviewer name
       text,
       timestamp: new Date(),
       attachment,
@@ -129,7 +130,7 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
     });
 
     onUpdateProject({ ...project, pins: updatedPins });
-  }, [project, onUpdateProject]);
+  }, [project, onUpdateProject, reviewer]);
   
   const handleDeleteComment = useCallback((pinId: string, commentId: string) => {
     if (project.isLocked) return;
