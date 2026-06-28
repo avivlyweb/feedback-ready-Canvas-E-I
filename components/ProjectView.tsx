@@ -110,8 +110,28 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
   }, [project, onUpdateProject, isReadOnly]);
 
   const handleSelectPin = useCallback((pinId: string | null) => {
+    if (activePinId && activePinId !== pinId) {
+      const activePin = project.pins.find(p => p.id === activePinId);
+      if (activePin && activePin.comments.length === 0) {
+        const updatedPins = project.pins.filter(p => p.id !== activePinId)
+          .map((p, index) => ({ ...p, number: index + 1 }));
+        onUpdateProject({ ...project, pins: updatedPins });
+      }
+    }
     setActivePinId(pinId);
-  }, []);
+  }, [activePinId, project, onUpdateProject]);
+
+  const handleGoBack = useCallback(() => {
+    if (activePinId) {
+      const activePin = project.pins.find(p => p.id === activePinId);
+      if (activePin && activePin.comments.length === 0) {
+        const updatedPins = project.pins.filter(p => p.id !== activePinId)
+          .map((p, index) => ({ ...p, number: index + 1 }));
+        onUpdateProject({ ...project, pins: updatedPins });
+      }
+    }
+    onGoBack();
+  }, [activePinId, project, onUpdateProject, onGoBack]);
 
   const handleAddComment = useCallback((pinId: string, text: string, attachment?: { data: string; name: string; type: string; }) => {
     if (isReadOnly || project.isLocked) return;
@@ -233,7 +253,7 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, onUpdateProject, onG
           onResolvePin={handleResolvePin}
           activePinId={activePinId}
           onSelectPin={handleSelectPin}
-          onGoBack={onGoBack}
+          onGoBack={handleGoBack}
           onUpdateProject={onUpdateProject}
           onTriggerImageScreenshot={handleTriggerImageScreenshot}
           onTriggerUrlScreenshot={handleTriggerUrlScreenshot}

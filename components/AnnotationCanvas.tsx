@@ -210,20 +210,35 @@ const ScreenshotTool: React.FC<ScreenshotToolProps> = ({ imageElement, container
       onMouseLeave={isSelecting ? handleMouseUp : undefined}
     >
       <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
-      <div className="sticky top-4 left-1/2 -translate-x-1/2 bg-white/90 text-slate-800 px-4 py-2 rounded-full text-sm font-semibold flex items-center shadow-lg animate-fade-in-fast pointer-events-none">
-        Click and drag to capture an area
+      
+      {/* Central Interactive Capture Panel */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center space-x-3 z-50">
+        <div className="bg-white/95 backdrop-blur text-slate-800 px-4 py-2 rounded-full text-xs font-bold flex items-center shadow-lg border border-slate-200">
+          ✨ Drag to crop OR click Use Full View
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onScreenshot(imageElement.src);
+          }}
+          className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold px-4 py-2 rounded-full shadow-lg text-xs transition-all flex items-center border border-indigo-500 hover:scale-105"
+        >
+          <ArrowsPointingOutIcon className="w-3.5 h-3.5 mr-1.5" />
+          Use Full View
+        </button>
       </div>
       
-      <div className="absolute top-4 right-4 flex items-center space-x-2">
-        <div className="flex items-center bg-white/90 rounded-full p-1 shadow-lg">
-          <button onClick={() => setMode('rectangle')} className={getToolButtonClass('rectangle')} title="Rectangle select">
+      <div className="absolute top-4 right-4 flex items-center space-x-2 z-50">
+        <div className="flex items-center bg-white/90 rounded-full p-1 shadow-lg border border-slate-200">
+          <button onClick={(e) => { e.stopPropagation(); setMode('rectangle'); }} className={getToolButtonClass('rectangle')} title="Rectangle select">
             <RectangleIcon className="w-5 h-5" />
           </button>
-          <button onClick={() => setMode('freehand')} className={getToolButtonClass('freehand')} title="Freehand select (Lasso)">
+          <button onClick={(e) => { e.stopPropagation(); setMode('freehand'); }} className={getToolButtonClass('freehand')} title="Freehand select (Lasso)">
             <LassoIcon className="w-5 h-5" />
           </button>
         </div>
-        <button onClick={onCancel} className="bg-white/90 rounded-full p-2 text-slate-800 hover:bg-slate-200 shadow-lg" title="Cancel screenshot">
+        <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="bg-white/90 rounded-full p-2 text-slate-800 hover:bg-slate-200 shadow-lg border border-slate-200" title="Cancel screenshot">
           <XMarkIcon className="w-5 h-5" />
         </button>
       </div>
@@ -312,6 +327,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     }
       
     if (mode === 'comment' && !project.isLocked && !isReadOnly) {
+      if (activePinId) {
+        onSelectPin(null);
+        return;
+      }
       if (canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
         const x = ((e.clientX - rect.left + canvasRef.current.scrollLeft) / canvasRef.current.scrollWidth) * 100;
