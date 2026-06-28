@@ -27,6 +27,13 @@ export interface Pin {
   y: number; // percentage from top
   status: CommentStatus;
   comments: Comment[];
+  // V2 fields
+  viewport?: string;
+  suggestedFix?: string;
+  rubricCategory?: string;
+  severity?: string;
+  linkedChecklistId?: string;
+  findingStatus?: 'open' | 'student_fixed' | 'verified';
 }
 
 export interface Project {
@@ -41,4 +48,13 @@ export interface Project {
   studentName?: string;
   notes?: string;
   screenshots?: string[];
+  // V2 fields
+  isV2?: boolean;
+  submissionStatus?: 'submitted' | 'in_review' | 'published';
+  readinessStatus?: 'not_assessed' | 'changes_required' | 'submit_ready';
+  preflight?: string; // stringified JSON
+  checklist?: string; // stringified JSON
+  selfCheck?: string; // stringified JSON
+  reusableComments?: string[];
+  aiSummary?: string;
 }

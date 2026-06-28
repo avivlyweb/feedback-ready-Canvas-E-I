@@ -248,7 +248,7 @@ const ScreenshotTool: React.FC<ScreenshotToolProps> = ({ imageElement, container
 
 interface AnnotationCanvasProps {
   project: Project;
-  onAddPin: (x: number, y: number) => void;
+  onAddPin: (x: number, y: number, viewport?: string) => void;
   activePinId: string | null;
   onSelectPin: (pinId: string | null) => void;
   mode: 'comment' | 'browse';
@@ -555,7 +555,13 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         const rect = canvasRef.current.getBoundingClientRect();
         const x = ((e.clientX - rect.left + canvasRef.current.scrollLeft) / canvasRef.current.scrollWidth) * 100;
         const y = ((e.clientY - rect.top + canvasRef.current.scrollTop) / canvasRef.current.scrollHeight) * 100;
-        onAddPin(x, y);
+        
+        let activeViewportString = 'desktop';
+        if (iframeWidth === '375px') activeViewportString = 'mobile';
+        else if (iframeWidth === '768px') activeViewportString = 'tablet';
+        else if (iframeWidth === '1280px') activeViewportString = 'desktop';
+
+        onAddPin(x, y, activeViewportString);
       }
     } else {
       onSelectPin(null);
@@ -567,7 +573,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="relative w-full h-full flex flex-col">
        {project.type === ContentType.URL && <ResponsiveToolbar onResize={setIframeWidth} activeWidth={iframeWidth} />}
       
       {fullPageScreenshotForCrop && (
@@ -700,159 +706,159 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             Student View: Read-Only Feedback
           </div>
         )}
+      </div>
 
-        {/* Brush Highlighting Floating Control Panel */}
-        {isBrushMode && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur text-white rounded-2xl shadow-xl px-4 py-2.5 flex items-center space-x-4 z-50 border border-slate-700/50 animate-fade-in-fast flex-wrap md:flex-nowrap">
-            {/* Tool Type Selector */}
-            <div className="flex items-center space-x-1 border-r border-slate-700/80 pr-3 flex-shrink-0">
-              <button
-                onClick={() => setBrushType('freehand')}
-                className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'freehand' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                title="Pen"
-              >
-                <span className="mr-1">✏️</span> Pen
-              </button>
-              <button
-                onClick={() => setBrushType('circle')}
-                className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'circle' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                title="Circle Highlight"
-              >
-                <span className="mr-1">⭕</span> Circle
-              </button>
-              <button
-                onClick={() => setBrushType('arrow')}
-                className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'arrow' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                title="Arrow Pointer"
-              >
-                <span className="mr-1">🏹</span> Arrow
-              </button>
-            </div>
-
-            {/* Color Selector */}
-            <div className="flex items-center space-x-2 border-r border-slate-700/80 pr-3 flex-shrink-0">
-              {[
-                { hex: '#ef4444', label: 'Vibrant Red' },
-                { hex: '#eab308', label: 'Highlighter Yellow' },
-                { hex: '#06b6d4', label: 'Electric Cyan' },
-                { hex: '#a855f7', label: 'Neon Purple' },
-              ].map(color => (
-                <button
-                  key={color.hex}
-                  onClick={() => setBrushColor(color.hex)}
-                  className={`w-5.5 h-5.5 rounded-full border-2 transition-transform hover:scale-110 ${brushColor === color.hex ? 'border-white scale-110 shadow-sm' : 'border-transparent'}`}
-                  style={{ backgroundColor: color.hex }}
-                  title={color.label}
-                />
-              ))}
-            </div>
-
-            {/* Brush Width Selector */}
-            <div className="flex items-center space-x-2 border-r border-slate-700/80 pr-3 text-xs text-slate-300 font-semibold flex-shrink-0">
-              <span>Size:</span>
-              <input
-                type="range"
-                min="2"
-                max="12"
-                value={brushWidth}
-                onChange={(e) => setBrushWidth(parseInt(e.target.value))}
-                className="w-14 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-              />
-              <span className="w-3 text-center">{brushWidth}</span>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-1.5 flex-shrink-0">
-              <button
-                onClick={() => {
-                  if (drawings.length > 0) {
-                    const nextDrawings = drawings.slice(0, -1);
-                    setDrawings(nextDrawings);
-                    saveDrawingsToLocalStorage(nextDrawings);
-                  }
-                }}
-                disabled={drawings.length === 0}
-                className="px-2 py-1 text-[10px] font-extrabold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 transition"
-                title="Undo last line"
-              >
-                Undo
-              </button>
-              <button
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to clear all highlights?")) {
-                    setDrawings([]);
-                    localStorage.removeItem(`drawings-${project.id}`);
-                  }
-                }}
-                disabled={drawings.length === 0}
-                className="px-2 py-1 text-[10px] font-extrabold rounded bg-red-950 hover:bg-red-900 text-red-300 disabled:opacity-40 transition"
-                title="Clear all highlights"
-              >
-                Clear All
-              </button>
-            </div>
+      {/* Brush Highlighting Floating Control Panel */}
+      {isBrushMode && (
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur text-white rounded-2xl shadow-xl px-4 py-2.5 flex items-center space-x-4 z-50 border border-slate-700/50 animate-fade-in-fast flex-wrap md:flex-nowrap">
+          {/* Tool Type Selector */}
+          <div className="flex items-center space-x-1 border-r border-slate-700/80 pr-3 flex-shrink-0">
+            <button
+              onClick={() => setBrushType('freehand')}
+              className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'freehand' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+              title="Pen"
+            >
+              <span className="mr-1">✏️</span> Pen
+            </button>
+            <button
+              onClick={() => setBrushType('circle')}
+              className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'circle' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+              title="Circle Highlight"
+            >
+              <span className="mr-1">⭕</span> Circle
+            </button>
+            <button
+              onClick={() => setBrushType('arrow')}
+              className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'arrow' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+              title="Arrow Pointer"
+            >
+              <span className="mr-1">🏹</span> Arrow
+            </button>
           </div>
-        )}
 
-        {/* Floating Bottom Navigation Toolbar */}
-        {!isReadOnly && !project.isLocked && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-full shadow-xl p-1 flex items-center space-x-1 z-50 border border-slate-200">
+          {/* Color Selector */}
+          <div className="flex items-center space-x-2 border-r border-slate-700/80 pr-3 flex-shrink-0">
+            {[
+              { hex: '#ef4444', label: 'Vibrant Red' },
+              { hex: '#eab308', label: 'Highlighter Yellow' },
+              { hex: '#06b6d4', label: 'Electric Cyan' },
+              { hex: '#a855f7', label: 'Neon Purple' },
+            ].map(color => (
+              <button
+                key={color.hex}
+                onClick={() => setBrushColor(color.hex)}
+                className={`w-5.5 h-5.5 rounded-full border-2 transition-transform hover:scale-110 ${brushColor === color.hex ? 'border-white scale-110 shadow-sm' : 'border-transparent'}`}
+                style={{ backgroundColor: color.hex }}
+                title={color.label}
+              />
+            ))}
+          </div>
+
+          {/* Brush Width Selector */}
+          <div className="flex items-center space-x-2 border-r border-slate-700/80 pr-3 text-xs text-slate-300 font-semibold flex-shrink-0">
+            <span>Size:</span>
+            <input
+              type="range"
+              min="2"
+              max="12"
+              value={brushWidth}
+              onChange={(e) => setBrushWidth(parseInt(e.target.value))}
+              className="w-14 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+            />
+            <span className="w-3 text-center">{brushWidth}</span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-1.5 flex-shrink-0">
+            <button
+              onClick={() => {
+                if (drawings.length > 0) {
+                  const nextDrawings = drawings.slice(0, -1);
+                  setDrawings(nextDrawings);
+                  saveDrawingsToLocalStorage(nextDrawings);
+                }
+              }}
+              disabled={drawings.length === 0}
+              className="px-2 py-1 text-[10px] font-extrabold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 transition"
+              title="Undo last line"
+            >
+              Undo
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear all highlights?")) {
+                  setDrawings([]);
+                  localStorage.removeItem(`drawings-${project.id}`);
+                }
+              }}
+              disabled={drawings.length === 0}
+              className="px-2 py-1 text-[10px] font-extrabold rounded bg-red-950 hover:bg-red-900 text-red-300 disabled:opacity-40 transition"
+              title="Clear all highlights"
+            >
+              Clear All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Bottom Navigation Toolbar */}
+      {!isReadOnly && !project.isLocked && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-full shadow-xl p-1 flex items-center space-x-1 z-50 border border-slate-200">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSetBrushMode(false);
+              if (mode === 'browse') onSelectPin(null);
+              onSetMode('comment');
+            }}
+            className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+              !isBrushMode && mode === 'comment' 
+                ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+            }`}
+            title="Add interactive comments"
+          >
+            <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" />
+            <span>Comment Pin</span>
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSetBrushMode(true);
+            }}
+            className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+              isBrushMode 
+                ? 'bg-purple-600 text-white shadow-md scale-105' 
+                : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+            }`}
+            title="Draw highlights and annotations"
+          >
+            <span className="text-sm">✏️</span>
+            <span>Highlight Brush</span>
+          </button>
+
+          {project.type === ContentType.URL && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleSetBrushMode(false);
-                if (mode === 'browse') onSelectPin(null);
-                onSetMode('comment');
+                if (mode === 'comment') onSelectPin(null);
+                onSetMode('browse');
               }}
               className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
-                !isBrushMode && mode === 'comment' 
+                !isBrushMode && mode === 'browse' 
                   ? 'bg-indigo-600 text-white shadow-md scale-105' 
                   : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
               }`}
-              title="Add interactive comments"
+              title="Browse & click around the website"
             >
-              <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" />
-              <span>Comment Pin</span>
+              <CursorArrowRaysIcon className="w-4 h-4" />
+              <span>Browse Site</span>
             </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSetBrushMode(true);
-              }}
-              className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
-                isBrushMode 
-                  ? 'bg-purple-600 text-white shadow-md scale-105' 
-                  : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
-              }`}
-              title="Draw highlights and annotations"
-            >
-              <span className="text-sm">✏️</span>
-              <span>Highlight Brush</span>
-            </button>
-
-            {project.type === ContentType.URL && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSetBrushMode(false);
-                  if (mode === 'comment') onSelectPin(null);
-                  onSetMode('browse');
-                }}
-                className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
-                  !isBrushMode && mode === 'browse' 
-                    ? 'bg-indigo-600 text-white shadow-md scale-105' 
-                    : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
-                }`}
-                title="Browse & click around the website"
-              >
-                <CursorArrowRaysIcon className="w-4 h-4" />
-                <span>Browse Site</span>
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

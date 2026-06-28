@@ -64,6 +64,17 @@ export const StudentSubmission: React.FC<StudentSubmissionProps> = ({
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
 
+  // V2 Self-Check States
+  const [selfCheckOpen, setSelfCheckOpen] = useState(false);
+  const [selfChecks, setSelfChecks] = useState({
+    urlPublicCorrect: false,
+    testedDesktopMobile: false,
+    formsVideosEmbedded: false,
+    privacyCookiePresent: false,
+    mediaAiCredited: false,
+    noPlaceholderBroken: false
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -206,6 +217,7 @@ export const StudentSubmission: React.FC<StudentSubmissionProps> = ({
         studentEmail: student.email,
         notes: notes.trim() || undefined,
         screenshots: screenshots.length > 0 ? screenshots.map((s) => s.dataUrl) : undefined,
+        selfCheck: JSON.stringify(selfChecks),
       });
 
       setFormSuccess(true);
@@ -213,6 +225,14 @@ export const StudentSubmission: React.FC<StudentSubmissionProps> = ({
       setProjectUrl('');
       setNotes('');
       setScreenshots([]);
+      setSelfChecks({
+        urlPublicCorrect: false,
+        testedDesktopMobile: false,
+        formsVideosEmbedded: false,
+        privacyCookiePresent: false,
+        mediaAiCredited: false,
+        noPlaceholderBroken: false
+      });
     } catch (err: any) {
       setFormError(err.message || 'Failed to submit project. Please try again.');
     } finally {
@@ -396,6 +416,108 @@ export const StudentSubmission: React.FC<StudentSubmissionProps> = ({
                   rows={3}
                   className="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-slate-800 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none"
                 />
+              </div>
+
+              {/* Optional Self-Check Section */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => setSelfCheckOpen(!selfCheckOpen)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-slate-100/85 hover:bg-slate-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-2.5 text-left">
+                    <span className="text-base">📋</span>
+                    <div>
+                      <span className="block text-xs font-bold text-slate-900">Pre-submission Self-Check (Optional)</span>
+                      <span className="block text-[10px] text-slate-500 font-semibold leading-normal">Verify key requirements to get faster approval.</span>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-sm">
+                    {selfCheckOpen ? 'Hide Checks' : 'Configure Checks'}
+                  </span>
+                </button>
+                
+                {selfCheckOpen && (
+                  <div className="p-4 border-t border-slate-200 bg-white space-y-3.5">
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selfChecks.urlPublicCorrect}
+                        onChange={(e) => setSelfChecks({...selfChecks, urlPublicCorrect: e.target.checked})}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">URL is public & correct</span>
+                        <span className="block text-slate-400 font-semibold mt-0.5 leading-normal">I verified the submitted URL is live and visible without registration walls.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selfChecks.testedDesktopMobile}
+                        onChange={(e) => setSelfChecks({...selfChecks, testedDesktopMobile: e.target.checked})}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Tested on desktop & mobile</span>
+                        <span className="block text-slate-400 font-semibold mt-0.5 leading-normal">I checked responsive scaling and mobile layouts in browser devtools.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selfChecks.formsVideosEmbedded}
+                        onChange={(e) => setSelfChecks({...selfChecks, formsVideosEmbedded: e.target.checked})}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Forms & videos are embedded correctly</span>
+                        <span className="block text-slate-400 font-semibold mt-0.5 leading-normal">Any contact sheets or video previews load correctly and are operational.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selfChecks.privacyCookiePresent}
+                        onChange={(e) => setSelfChecks({...selfChecks, privacyCookiePresent: e.target.checked})}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Privacy Policy and Cookies present</span>
+                        <span className="block text-slate-400 font-semibold mt-0.5 leading-normal">Standard cookie disclosure banner and privacy page are available.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selfChecks.mediaAiCredited}
+                        onChange={(e) => setSelfChecks({...selfChecks, mediaAiCredited: e.target.checked})}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Media, sources & AI usage credited</span>
+                        <span className="block text-slate-400 font-semibold mt-0.5 leading-normal">Citations and authorship references are explicitly listed on an about or credits page.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={selfChecks.noPlaceholderBroken}
+                        onChange={(e) => setSelfChecks({...selfChecks, noPlaceholderBroken: e.target.checked})}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="text-xs">
+                        <span className="block font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Cleared placeholders & empty templates</span>
+                        <span className="block text-slate-400 font-semibold mt-0.5 leading-normal">No Lorem Ipsum or incomplete pages remain in my project folder.</span>
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Upload drag-and-drop box */}

@@ -31,6 +31,12 @@ export const createProject = mutation({
         x: v.number(),
         y: v.number(),
         status: v.string(),
+        viewport: v.optional(v.string()),
+        suggestedFix: v.optional(v.string()),
+        rubricCategory: v.optional(v.string()),
+        severity: v.optional(v.string()),
+        linkedChecklistId: v.optional(v.string()),
+        findingStatus: v.optional(v.string()),
         comments: v.array(
           v.object({
             id: v.string(),
@@ -54,6 +60,14 @@ export const createProject = mutation({
     studentName: v.optional(v.string()),
     notes: v.optional(v.string()),
     screenshots: v.optional(v.array(v.string())),
+    isV2: v.optional(v.boolean()),
+    submissionStatus: v.optional(v.string()),
+    readinessStatus: v.optional(v.string()),
+    preflight: v.optional(v.string()),
+    checklist: v.optional(v.string()),
+    selfCheck: v.optional(v.string()),
+    reusableComments: v.optional(v.array(v.string())),
+    aiSummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -81,6 +95,12 @@ export const updateProject = mutation({
         x: v.number(),
         y: v.number(),
         status: v.string(),
+        viewport: v.optional(v.string()),
+        suggestedFix: v.optional(v.string()),
+        rubricCategory: v.optional(v.string()),
+        severity: v.optional(v.string()),
+        linkedChecklistId: v.optional(v.string()),
+        findingStatus: v.optional(v.string()),
         comments: v.array(
           v.object({
             id: v.string(),
@@ -104,6 +124,14 @@ export const updateProject = mutation({
     studentName: v.optional(v.string()),
     notes: v.optional(v.string()),
     screenshots: v.optional(v.array(v.string())),
+    isV2: v.optional(v.boolean()),
+    submissionStatus: v.optional(v.string()),
+    readinessStatus: v.optional(v.string()),
+    preflight: v.optional(v.string()),
+    checklist: v.optional(v.string()),
+    selfCheck: v.optional(v.string()),
+    reusableComments: v.optional(v.array(v.string())),
+    aiSummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
