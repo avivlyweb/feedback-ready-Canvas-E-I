@@ -9,6 +9,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { LoginGate } from './components/LoginGate';
 import { StudentSubmission } from './components/StudentSubmission';
+import { LandingPage } from './components/LandingPage';
 
 const App: React.FC = () => {
   const dbProjects = useQuery(api.projects.getProjects);
@@ -45,47 +46,159 @@ const App: React.FC = () => {
 
   const projects: Project[] = React.useMemo(() => {
     if (!dbProjects) return [];
-    return dbProjects.map((dbProj: any) => ({
-      id: dbProj.id,
-      name: dbProj.name,
-      type: dbProj.type as ContentType,
-      content: dbProj.content,
-      isLocked: dbProj.isLocked,
-      studentEmail: dbProj.studentEmail,
-      studentName: dbProj.studentName,
-      notes: dbProj.notes,
-      screenshots: dbProj.screenshots,
-      createdAt: new Date(dbProj.createdAt),
-      isV2: dbProj.isV2,
-      submissionStatus: dbProj.submissionStatus,
-      readinessStatus: dbProj.readinessStatus,
-      preflight: dbProj.preflight,
-      checklist: dbProj.checklist,
-      selfCheck: dbProj.selfCheck,
-      reusableComments: dbProj.reusableComments,
-      aiSummary: dbProj.aiSummary,
-      pins: (dbProj.pins || []).map((pin: any) => ({
+    return dbProjects.map((dbProj: any) => {
+      let isV2 = dbProj.isV2;
+      let submissionStatus = dbProj.submissionStatus;
+      let readinessStatus = dbProj.readinessStatus;
+      let preflight = dbProj.preflight;
+      let checklist = dbProj.checklist;
+      let selfCheck = dbProj.selfCheck;
+      let reusableComments = dbProj.reusableComments;
+      let aiSummary = dbProj.aiSummary;
+      let notes = dbProj.notes;
+      let pinMetadata: Record<string, any> = {};
+
+      if (dbProj.notes && dbProj.notes.startsWith('__V2_DATA__:\'')) {
+        try {
+          const parsed = JSON.parse(dbProj.notes.substring('__V2_DATA__:'.length));
+          isV2 = parsed.isV2 ?? true;
+          submissionStatus = parsed.submissionStatus;
+          readinessStatus = parsed.readinessStatus;
+          preflight = parsed.preflight;
+          checklist = parsed.checklist;
+          selfCheck = parsed.selfCheck;
+          reusableComments = parsed.reusableComments;
+          aiSummary = parsed.aiSummary;
+          notes = parsed.notes;
+          pinMetadata = parsed.pinMetadata || {};
+        } catch (e) {
+          // fallback if parsing failed
+        }
+      } else if (dbProj.notes && dbProj.notes.startsWith('__V2_DATA__:')) {
+        try {
+          const parsed = JSON.parse(dbProj.notes.substring('__V2_DATA__:'.length));
+          isV2 = parsed.isV2 ?? true;
+          submissionStatus = parsed.submissionStatus;
+          readinessStatus = parsed.readinessStatus;
+          preflight = parsed.preflight;
+          checklist = parsed.checklist;
+          selfCheck = parsed.selfCheck;
+          reusableComments = parsed.reusableComments;
+          aiSummary = parsed.aiSummary;
+          notes = parsed.notes;
+          pinMetadata = parsed.pinMetadata || {};
+        } catch (e) {
+          // fallback if parsing failed
+        }
+      }
+
+      return {
+        id: dbProj.id,
+        name: dbProj.name,
+        type: dbProj.type as ContentType,
+        content: dbProj.content,
+        isLocked: dbProj.isLocked,
+        studentEmail: dbProj.studentEmail,
+        studentName: dbProj.studentName,
+        notes: notes,
+        screenshots: dbProj.screenshots,
+        createdAt: new Date(dbProj.createdAt),
+        isV2,
+        submissionStatus,
+        readinessStatus,
+        preflight,
+        checklist,
+        selfCheck,
+        reusableComments,
+        aiSummary,
+        pins: (dbProj.pins || []).map((pin: any) => {
+          const meta = pinMetadata[pin.id] || {};
+          return {
+            id: pin.id,
+            number: pin.number,
+            x: pin.x,
+            y: pin.y,
+            status: pin.status as CommentStatus,
+            viewport: pin.viewport || meta.viewport,
+            suggestedFix: pin.suggestedFix || meta.suggestedFix,
+            rubricCategory: pin.rubricCategory || meta.rubricCategory,
+            severity: pin.severity || meta.severity,
+            linkedChecklistId: pin.linkedChecklistId || meta.linkedChecklistId,
+            findingStatus: pin.findingStatus || meta.findingStatus,
+            comments: (pin.comments || []).map((c: any) => ({
+              id: c.id,
+              author: c.author,
+              text: c.text,
+              timestamp: new Date(c.timestamp),
+              attachment: c.attachment,
+            })),
+          };
+        }),
+      };
+    });
+  }, [dbProjects]);
+
+  const prepareProjectForDb = useCallback((projArgs: any) => {
+    const pinMetadata: Record<string, any> = {};
+    const sanitizedPins = (projArgs.pins || []).map((pin: any) => {
+      if (pin.viewport || pin.suggestedFix || pin.rubricCategory || pin.severity || pin.linkedChecklistId || pin.findingStatus) {
+        pinMetadata[pin.id] = {
+          viewport: pin.viewport,
+          suggestedFix: pin.suggestedFix,
+          rubricCategory: pin.rubricCategory,
+          severity: pin.severity,
+          linkedChecklistId: pin.linkedChecklistId,
+          findingStatus: pin.findingStatus,
+        };
+      }
+      return {
         id: pin.id,
         number: pin.number,
         x: pin.x,
         y: pin.y,
-        status: pin.status as CommentStatus,
-        viewport: pin.viewport,
-        suggestedFix: pin.suggestedFix,
-        rubricCategory: pin.rubricCategory,
-        severity: pin.severity,
-        linkedChecklistId: pin.linkedChecklistId,
-        findingStatus: pin.findingStatus,
+        status: pin.status,
         comments: (pin.comments || []).map((c: any) => ({
           id: c.id,
           author: c.author,
           text: c.text,
-          timestamp: new Date(c.timestamp),
+          timestamp: c.timestamp instanceof Date ? c.timestamp.toISOString() : new Date(c.timestamp).toISOString(),
           attachment: c.attachment,
         })),
-      })),
-    }));
-  }, [dbProjects]);
+      };
+    });
+
+    const v2Data = {
+      isV2: projArgs.isV2 || false,
+      submissionStatus: projArgs.submissionStatus,
+      readinessStatus: projArgs.readinessStatus,
+      preflight: projArgs.preflight,
+      checklist: projArgs.checklist,
+      selfCheck: projArgs.selfCheck,
+      reusableComments: projArgs.reusableComments,
+      aiSummary: projArgs.aiSummary,
+      notes: projArgs.notes,
+      pinMetadata,
+    };
+
+    const serializedNotes = `__V2_DATA__:${JSON.stringify(v2Data)}`;
+
+    const dbPayload: any = {
+      id: projArgs.id,
+      name: projArgs.name,
+      type: projArgs.type,
+      content: projArgs.content,
+      pins: sanitizedPins,
+      createdAt: projArgs.createdAt,
+      isLocked: projArgs.isLocked || false,
+    };
+
+    if (projArgs.studentEmail) dbPayload.studentEmail = projArgs.studentEmail;
+    if (projArgs.studentName) dbPayload.studentName = projArgs.studentName;
+    if (projArgs.screenshots) dbPayload.screenshots = projArgs.screenshots;
+    dbPayload.notes = serializedNotes;
+
+    return dbPayload;
+  }, []);
 
   const handleCreateProject = useCallback(async (name: string, type: ContentType, content: string) => {
     const projectId = `proj-${Date.now()}`;
@@ -130,7 +243,7 @@ const App: React.FC = () => {
       { id: "check_10", text: "Media, sources, tools, and AI-generated material are appropriately disclosed and credited.", status: "not_checked" }
     ]);
 
-    await createProjectMutation({
+    const projectPayload = {
       id: projectId,
       name,
       type: ContentType.URL,
@@ -154,9 +267,12 @@ const App: React.FC = () => {
         "Form input elements are missing proper <label> associations.",
         "Your embedded video lacks captions or a text transcript for accessibility."
       ]
-    });
+    };
+
+    const dbPayload = prepareProjectForDb(projectPayload);
+    await createProjectMutation(dbPayload);
     setSelectedProjectId(projectId);
-  }, [createProjectMutation]);
+  }, [createProjectMutation, prepareProjectForDb]);
 
   const handleStudentSubmitProject = useCallback(async (data: {
     name: string;
@@ -195,7 +311,7 @@ const App: React.FC = () => {
       { id: "check_10", text: "Media, sources, tools, and AI-generated material are appropriately disclosed and credited.", status: "not_checked" }
     ]);
 
-    await createProjectMutation({
+    const projectPayload = {
       id: projectId,
       name: data.name,
       type: ContentType.URL,
@@ -205,7 +321,7 @@ const App: React.FC = () => {
       isLocked: false,
       studentEmail: data.studentEmail,
       studentName: data.studentName,
-      notes: data.notes,
+      notes: data.notes || "Student project submission.",
       screenshots: data.screenshots,
       isV2: true,
       submissionStatus: "submitted",
@@ -220,8 +336,11 @@ const App: React.FC = () => {
         "Form input elements are missing proper <label> associations.",
         "Your embedded video lacks captions or a text transcript for accessibility."
       ]
-    });
-  }, [createProjectMutation]);
+    };
+
+    const dbPayload = prepareProjectForDb(projectPayload);
+    await createProjectMutation(dbPayload);
+  }, [createProjectMutation, prepareProjectForDb]);
 
   const handleSelectProject = useCallback((projectId: string) => {
     setSelectedProjectId(projectId);
@@ -235,47 +354,41 @@ const App: React.FC = () => {
   }, [role]);
 
   const handleUpdateProject = useCallback(async (updatedProject: Project) => {
-    await updateProjectMutation({
-      id: updatedProject.id,
-      name: updatedProject.name,
-      type: updatedProject.type,
-      content: updatedProject.content,
-      isLocked: updatedProject.isLocked || false,
-      createdAt: updatedProject.createdAt.toISOString(),
-      studentEmail: updatedProject.studentEmail,
-      studentName: updatedProject.studentName,
-      notes: updatedProject.notes,
-      screenshots: updatedProject.screenshots,
-      isV2: updatedProject.isV2,
-      submissionStatus: updatedProject.submissionStatus,
-      readinessStatus: updatedProject.readinessStatus,
-      preflight: updatedProject.preflight,
-      checklist: updatedProject.checklist,
-      selfCheck: updatedProject.selfCheck,
-      reusableComments: updatedProject.reusableComments,
-      aiSummary: updatedProject.aiSummary,
-      pins: updatedProject.pins.map((pin) => ({
-        id: pin.id,
-        number: pin.number,
-        x: pin.x,
-        y: pin.y,
-        status: pin.status,
-        viewport: pin.viewport,
-        suggestedFix: pin.suggestedFix,
-        rubricCategory: pin.rubricCategory,
-        severity: pin.severity,
-        linkedChecklistId: pin.linkedChecklistId,
-        findingStatus: pin.findingStatus,
-        comments: pin.comments.map((c) => ({
-          id: c.id,
-          author: c.author,
-          text: c.text,
-          timestamp: c.timestamp instanceof Date ? c.timestamp.toISOString() : new Date(c.timestamp).toISOString(),
-          attachment: c.attachment,
+    if (updatedProject.isV2) {
+      const dbPayload = prepareProjectForDb({
+        ...updatedProject,
+        createdAt: updatedProject.createdAt.toISOString()
+      });
+      await updateProjectMutation(dbPayload);
+    } else {
+      await updateProjectMutation({
+        id: updatedProject.id,
+        name: updatedProject.name,
+        type: updatedProject.type,
+        content: updatedProject.content,
+        isLocked: updatedProject.isLocked || false,
+        createdAt: updatedProject.createdAt.toISOString(),
+        studentEmail: updatedProject.studentEmail,
+        studentName: updatedProject.studentName,
+        notes: updatedProject.notes,
+        screenshots: updatedProject.screenshots,
+        pins: updatedProject.pins.map((pin) => ({
+          id: pin.id,
+          number: pin.number,
+          x: pin.x,
+          y: pin.y,
+          status: pin.status,
+          comments: pin.comments.map((c) => ({
+            id: c.id,
+            author: c.author,
+            text: c.text,
+            timestamp: c.timestamp instanceof Date ? c.timestamp.toISOString() : new Date(c.timestamp).toISOString(),
+            attachment: c.attachment,
+          })),
         })),
-      })),
-    });
-  }, [updateProjectMutation]);
+      });
+    }
+  }, [updateProjectMutation, prepareProjectForDb]);
 
   const handleDeleteProject = useCallback(async (projectId: string) => {
     if (window.confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
@@ -320,98 +433,7 @@ const App: React.FC = () => {
   // 2. Render Landing Page
   if (role === 'landing') {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-        <header className="bg-white border-b border-slate-200 py-4 shadow-sm">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-            <div className="flex items-center space-x-2.5">
-              <LogoIcon className="h-7 w-7 text-indigo-600" />
-              <span className="font-extrabold text-slate-950 text-xl tracking-tight">ESP Canvas Feedback</span>
-            </div>
-            <span className="text-xs bg-slate-100 border border-slate-200 text-slate-500 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
-              Educational Platform
-            </span>
-          </div>
-        </header>
-
-        <main className="flex-grow max-w-5xl mx-auto px-4 sm:px-6 py-12 flex flex-col justify-center">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-950 tracking-tight leading-tight">
-              Continuous Web Review & Interactive Feedback
-            </h1>
-            <p className="text-slate-500 mt-4 text-base sm:text-lg leading-relaxed">
-              Design critique and responsive viewport inspections for student clinical web applications, unified on a real-time annotation canvas.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto w-full">
-            {/* Reviewer Workspace Gate */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 p-6 flex flex-col hover:border-indigo-400 hover:shadow-lg transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mb-4 border border-slate-200">
-                <LockClosedIcon className="w-5 h-5 text-slate-600" />
-              </div>
-              <h2 className="text-xl font-bold text-slate-950">Reviewer Workspace 1.0</h2>
-              <p className="text-slate-500 mt-2 text-xs leading-relaxed flex-grow">
-                Review submitted student URLs. Annotate responsive mobile, tablet, and desktop viewports, and generate AI-powered rubric summaries.
-              </p>
-              <button
-                onClick={() => {
-                  setRole('reviewer');
-                }}
-                className="mt-6 w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow transition-all flex items-center justify-center space-x-2"
-              >
-                <span>Enter Workspace</span>
-              </button>
-            </div>
-
-            {/* Reviewer Workspace 2.0 Gate */}
-            <div className="bg-slate-900 text-white rounded-2xl shadow-md border-2 border-indigo-500 p-6 flex flex-col hover:shadow-xl transition-all duration-300 relative overflow-hidden">
-              <div className="absolute top-3 right-3 bg-indigo-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                V2 ACTIVE
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-950 flex items-center justify-center mb-4 border border-indigo-800/60">
-                <span className="text-indigo-400 text-lg font-black">✨</span>
-              </div>
-              <h2 className="text-xl font-bold text-white flex items-center space-x-1.5">
-                <span>Reviewer Workspace 2.0</span>
-              </h2>
-              <p className="text-slate-400 mt-2 text-xs leading-relaxed flex-grow">
-                Submit Ready flow. Track mandatory 10-point checklists, automated preflight diagnostics, severity levels, and student-fixed revision markers!
-              </p>
-              <button
-                onClick={() => {
-                  setRole('reviewer_v2');
-                }}
-                className="mt-6 w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center space-x-2"
-              >
-                <span>Launch Workspace 2.0</span>
-              </button>
-            </div>
-
-            {/* Student Submission Gate */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 p-6 flex flex-col hover:border-indigo-400 hover:shadow-lg transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-4 border border-emerald-100">
-                <GlobeAltIcon className="w-5 h-5 text-emerald-600" />
-              </div>
-              <h2 className="text-xl font-bold text-slate-950">Student Center</h2>
-              <p className="text-slate-500 mt-2 text-xs leading-relaxed flex-grow">
-                Submit your active website project URL along with custom design notes or PDF/image attachments. Track real-time feedback comments on your canvas.
-              </p>
-              <button
-                onClick={() => setRole('student')}
-                className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-4 rounded-xl font-bold text-xs shadow transition-all flex items-center justify-center space-x-2"
-              >
-                <span>Submit Your Project</span>
-              </button>
-            </div>
-          </div>
-        </main>
-
-        <footer className="py-6 border-t border-slate-200 bg-white">
-          <div className="max-w-6xl mx-auto px-4 text-center text-xs text-slate-400 font-semibold tracking-wide">
-            ESP Amsterdam Web Design critique tool. Powered by React, Convex, and Google Gemini API.
-          </div>
-        </footer>
-      </div>
+      <LandingPage onSelectRole={(selectedRole) => setRole(selectedRole)} />
     );
   }
 

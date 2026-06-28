@@ -152,7 +152,7 @@ const PinPopover: React.FC<PinPopoverProps> = ({ pin, onAddComment, onDeleteComm
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
               placeholder="Add a reply..."
-              className="w-full p-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              className="w-full p-2 border border-slate-300 bg-white text-slate-800 placeholder-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               rows={2}
             />
             {attachment && (

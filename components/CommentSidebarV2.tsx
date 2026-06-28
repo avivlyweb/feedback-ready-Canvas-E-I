@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Project, Pin, Comment as CommentType, CommentStatus } from '../types';
+import { generateV2EvaluationSummary, runAIPrescan } from '../services/geminiService';
 import { 
   ArrowLeftIcon, 
   TrashIcon, 
@@ -64,6 +65,56 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
   // AI Summary local text state
   const [editableSummary, setEditableSummary] = useState(project.aiSummary || '');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  // AI Pre-scan states
+  const [aiPrescanResult, setAiPrescanResult] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+
+  const handleRunAIPrescan = async () => {
+    setIsScanning(true);
+    try {
+      const result = await runAIPrescan(project.name, project.content, project.notes || 'No student notes supplied.');
+      setAiPrescanResult(result);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to perform AI pre-scan. Please ensure API_KEY is set.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const renderMarkdown = (text: string) => {
+    return text.split('\n').map((line, index) => {
+      if (line.startsWith('###')) {
+        return <h3 key={index} className="text-sm font-bold text-indigo-400 mt-3 mb-1.5">{line.replace('###', '').trim()}</h3>;
+      }
+      if (line.startsWith('####')) {
+        return <h4 key={index} className="text-xs font-bold text-slate-200 mt-2.5 mb-1.5">{line.replace('####', '').trim()}</h4>;
+      }
+      if (line.startsWith('**') && line.endsWith('**')) {
+        return <h5 key={index} className="text-xs font-bold text-slate-300 mt-2 mb-1">{line.replace(/\*\*/g, '').trim()}</h5>;
+      }
+      if (line.trim().startsWith('-') || line.trim().startsWith('*')) {
+        const cleanLine = line.trim().replace(/^[-*]\s*/, '');
+        const parsed = cleanLine.split('`').map((part, pidx) => {
+          if (pidx % 2 === 1) {
+            return <code key={pidx} className="bg-slate-900 text-pink-400 px-1 py-0.5 rounded text-[10px] font-mono">{part}</code>;
+          }
+          return part;
+        });
+        return <li key={index} className="ml-3.5 list-disc text-[11px] text-slate-400 mb-1 leading-relaxed font-semibold">{parsed}</li>;
+      }
+      if (line.trim().length === 0) return <div key={index} className="h-1.5" />;
+      
+      const parsedLine = line.split('`').map((part, pidx) => {
+        if (pidx % 2 === 1) {
+          return <code key={pidx} className="bg-slate-900 text-pink-400 px-1 py-0.5 rounded text-[10px] font-mono">{part}</code>;
+        }
+        return part;
+      });
+      return <p key={index} className="text-[11px] text-slate-400 mb-1 leading-relaxed font-semibold">{parsedLine}</p>;
+    });
+  };
 
   // Sync AI Summary with project value if updated
   useEffect(() => {
@@ -186,30 +237,17 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
     : 0;
 
   // Compile Dynamic Evaluation Markdown
-  const handleGenerateAISummary = () => {
+  const handleGenerateAISummary = async () => {
     setIsGeneratingSummary(true);
-    setTimeout(() => {
-      const summaryMarkdown = `## Reviewer Rubric summary
-
-### 📋 Overview Metrics
-- **Checklist Pass Rate**: ${passedChecksCount}/10 passed (${checklistProgressPercentage}%)
-- **Identified Blockers**: ${openMustFixCount} unresolved mandatory changes
-- **Responsive Captures**: ${project.pins.filter(p => p.viewport === 'mobile').length} mobile pins, ${project.pins.filter(p => p.viewport === 'tablet').length} tablet pins
-
-### 🔍 Crucial Improvements Required (Must Fix)
-${project.pins
-  .filter(p => p.status === CommentStatus.OPEN && p.severity === 'must_fix')
-  .map(p => {
-    const mainComment = p.comments[0]?.text || 'No comment text.';
-    return `- **Pin #${p.number} [${p.viewport?.toUpperCase()}]** (${p.rubricCategory?.toUpperCase()}): ${mainComment}\n  *Suggested Fix*: ${p.suggestedFix || 'Ensure compliance.'}`;
-  })
-  .join('\n') || '- None. Perfect! No mandatory blockers remaining.'}
-
-### ✨ Areas of Strength
-- Core layout is clean and responsive.
-- Preflight secure connection (HTTPS) verified.
-- The project is fully structured with form implementations.
-`;
+    try {
+      const summaryMarkdown = await generateV2EvaluationSummary(
+        project.name,
+        project.content,
+        project.notes || 'No student notes supplied.',
+        project.pins,
+        checklistItems,
+        preflightChecks
+      );
       setEditableSummary(summaryMarkdown);
       
       // Save to server
@@ -217,8 +255,12 @@ ${project.pins
         ...project,
         aiSummary: summaryMarkdown,
       });
+    } catch (e) {
+      console.error(e);
+      alert("An error occurred while compiling the AI evaluation summary. Please try again.");
+    } finally {
       setIsGeneratingSummary(false);
-    }, 1200);
+    }
   };
 
   const handleSaveEditableSummary = () => {
@@ -681,6 +723,40 @@ ${project.pins
               <p className="text-[10px] text-slate-500 font-semibold leading-normal">
                 Review automated signals detected upon student submission. These identify compliance and configuration items.
               </p>
+            </div>
+
+            {/* AI Automated Audit Scan section */}
+            <div className="p-3.5 bg-gradient-to-br from-indigo-950/30 to-slate-950 border border-indigo-900/40 rounded-xl space-y-3 shadow-sm">
+              <div className="flex items-center space-x-2">
+                <SparklesIcon className="w-4 h-4 text-indigo-400" />
+                <h4 className="text-xs font-bold text-indigo-200">AI-Powered Compliance Audit</h4>
+              </div>
+              <p className="text-[10px] text-slate-400 font-semibold leading-normal">
+                Let Gemini perform a predictive pre-scan based on the submission URL, project metadata, and potential layout risks.
+              </p>
+              
+              {!aiPrescanResult ? (
+                <button
+                  onClick={handleRunAIPrescan}
+                  disabled={isScanning}
+                  className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 focus:outline-none"
+                >
+                  <span>{isScanning ? 'Auditing website...' : 'Run Automated AI Pre-Scan'}</span>
+                </button>
+              ) : (
+                <div className="space-y-3 pt-1 border-t border-indigo-900/30">
+                  <div className="max-h-60 overflow-y-auto pr-1 text-slate-300 text-xs bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                    {renderMarkdown(aiPrescanResult)}
+                  </div>
+                  <button
+                    onClick={handleRunAIPrescan}
+                    disabled={isScanning}
+                    className="w-full py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-md transition-all focus:outline-none"
+                  >
+                    {isScanning ? 'Re-scanning...' : 'Re-run AI Pre-Scan'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2.5">

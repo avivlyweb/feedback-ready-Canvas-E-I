@@ -1,13 +1,147 @@
 import { GoogleGenAI } from "@google/genai";
 import { Comment } from '../types';
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
 
 if (!API_KEY) {
   console.warn("API_KEY environment variable not set. AI features will not work.");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const ai = new GoogleGenAI({ 
+  apiKey: API_KEY,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
+
+export const runAIPrescan = async (projectName: string, url: string, studentNotes: string): Promise<string> => {
+  if (!API_KEY) {
+    return "AI functionality is disabled. Please configure your API_KEY.";
+  }
+
+  const prompt = `
+    You are an expert AI website auditor and frontend QA engineer.
+    Analyze the project details below and perform an automated, predictive AI pre-scan and audit report of the website based on its URL, name, and notes.
+
+    Project Name: ${projectName}
+    Project URL: ${url}
+    Student Notes: ${studentNotes}
+
+    Provide a highly professional and realistic pre-scan audit report. Organize the output into clear Markdown sections:
+
+    ### ⚡ AI Pre-Scan & Automated Audit Report
+
+    #### 🔍 1. Predictive Risk Assessment
+    Based on the project's purpose and URL, what are the top 3 potential frontend, layout, or responsiveness risks the student might have missed? (e.g. form fields validation, video embed responsiveness, mobile nav menu wrapping, contrast ratios).
+
+    #### 🚨 2. Expected Rubric Checklist Pitfalls
+    Analyze common failure points for a project of this nature and list specific checklist items (e.g. cookie consent, AI disclosure, privacy policies) that the reviewer should pay closest attention to.
+
+    #### 💡 3. Recommended Expert Verification Steps
+    Provide 3 step-by-step diagnostic actions for the reviewer to perform right now on the live canvas (e.g., "Trigger mobile view and test the submission button on the embedded quiz").
+
+    Format the output cleanly in readable markdown. Keep the tone helpful, professional, and educational.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+    });
+    return response.text || "No response received from Gemini.";
+  } catch (error) {
+    console.error("Error calling Gemini API for pre-scan:", error);
+    return "An error occurred while generating the AI pre-scan. Please check your network connection and API key configuration.";
+  }
+};
+
+export const generateV2EvaluationSummary = async (
+  projectName: string,
+  projectUrl: string,
+  studentNotes: string,
+  pins: any[],
+  checklistItems: any[],
+  preflightChecks: any[]
+): Promise<string> => {
+  if (!API_KEY) {
+    return "AI functionality is disabled. Please configure your API_KEY.";
+  }
+
+  // Format annotations
+  const formattedPins = pins.map(p => {
+    const mainComment = p.comments?.[0]?.text || 'No comment text.';
+    return `- **Pin #${p.number} [Severity: ${p.severity?.toUpperCase()}]** Category: ${p.rubricCategory?.toUpperCase() || 'GENERAL'} | Viewport: ${p.viewport?.toUpperCase() || 'ANY'}
+      *Comment*: "${mainComment}"
+      *Suggested Fix*: ${p.suggestedFix || 'Not specified'}`;
+  }).join('\n');
+
+  // Format checklist
+  const passedChecks = checklistItems.filter(i => i.status === 'passed').map(i => `- ${i.text}`).join('\n') || '- None';
+  const failedChecks = checklistItems.filter(i => i.status === 'failed').map(i => `- ${i.text}`).join('\n') || '- None';
+  const pendingChecks = checklistItems.filter(i => i.status !== 'passed' && i.status !== 'failed').map(i => `- ${i.text}`).join('\n') || '- None';
+
+  // Format preflight
+  const formattedPreflight = preflightChecks.map(c => `- **${c.name}**: ${c.status === 'pass_signal' ? 'Passed ✅' : 'Warning ⚠️'} (${c.details})`).join('\n');
+
+  const prompt = `
+    You are an elite web design reviewer, frontend educator, and UX critic. 
+    Compile a comprehensive, structured evaluation critique draft and summary report based on a live review of the project.
+
+    --- PROJECT META ---
+    Project Name: ${projectName}
+    Project URL: ${projectUrl}
+    Student Notes: ${studentNotes}
+
+    --- REVIEWER PLACED FINDINGS & ANNOTATIONS ---
+    ${formattedPins || "No pins/findings have been placed yet."}
+
+    --- REQUIREMENTS CHECKLIST STATUS ---
+    ### PASSED ITEMS:
+    ${passedChecks}
+
+    ### FAILED / BLOCKER ITEMS:
+    ${failedChecks}
+
+    ### UNASSESSED / PENDING:
+    ${pendingChecks}
+
+    --- AUTOMATED PREFLIGHT SIGNALS ---
+    ${formattedPreflight}
+
+    --- INSTRUCTIONS ---
+    Generate a highly professional, constructive, and comprehensive evaluation markdown draft.
+    Organize your response into the following clear sections with robust feedback:
+
+    ## 🎓 AI evaluation & Critique Draft
+
+    ### 📋 1. Executive Summary & Verdict
+    Provide a professional, high-level summary of the submission's overall design quality, functional readiness, and layout responsiveness. State whether the submission looks close to "Submit Ready" or requires revisions.
+
+    ### 🔴 2. Crucial Blocker Items (Must Fix)
+    Highlight the most critical problems (specifically reference placed annotations and failed requirements). Focus on usability, broken elements, contrast, and layout issues.
+
+    ### 🟢 3. Areas of Strength & Praise
+    Praise what is done exceptionally well (e.g., visual layout clean, secure preflight passing, checklist compliance, etc.).
+
+    ### 🛠️ 4. Actionable Coding & Layout Advice
+    Give clear, educational coding tips or CSS layout advice to help the student fix the identified bugs. Keep the tone encouraging, technical, and constructive.
+
+    Produce the evaluation draft in structured markdown. Do not include placeholders, return a complete draft.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+    });
+    return response.text || "No response received from Gemini.";
+  } catch (error) {
+    console.error("Error calling Gemini API for V2 evaluation summary:", error);
+    return "An error occurred while compiling the AI evaluation summary.";
+  }
+};
 
 export const summarizeFeedback = async (comments: Comment[]): Promise<string> => {
   if (!API_KEY) {
@@ -46,10 +180,10 @@ export const summarizeFeedback = async (comments: Comment[]): Promise<string> =>
 
   try {
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash',
         contents: prompt
     });
-    return response.text;
+    return response.text || "No summary text returned.";
   } catch (error) {
     console.error("Error calling Gemini API:", error);
     return "An error occurred while generating the summary. Please check the console for details.";
@@ -103,7 +237,7 @@ export const analyzeImages = async (images: { base64Data: string; mimeType: stri
       contents: { parts: [...imageParts, textPart] },
     });
 
-    return response.text;
+    return response.text || "No analysis text returned.";
   } catch (error) {
     console.error("Error calling Gemini API for image analysis:", error);
     return "An error occurred while generating the visual analysis. Please check the console for details.";
