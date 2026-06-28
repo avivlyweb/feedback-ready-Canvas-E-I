@@ -495,6 +495,8 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         canvas.width = width;
         canvas.height = height;
       }
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
     }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -624,7 +626,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         {!isBrushMode && drawings.length > 0 && (
           <canvas
             ref={drawingDisplayCanvasRef}
-            className="absolute top-0 left-0 z-0 pointer-events-none bg-transparent"
+            className="absolute top-0 left-0 z-20 pointer-events-none bg-transparent"
           />
         )}
         
@@ -701,7 +703,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
         {/* Brush Highlighting Floating Control Panel */}
         {isBrushMode && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur text-white rounded-2xl shadow-xl px-4 py-2.5 flex items-center space-x-4 z-40 border border-slate-700/50 animate-fade-in-fast flex-wrap md:flex-nowrap">
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur text-white rounded-2xl shadow-xl px-4 py-2.5 flex items-center space-x-4 z-50 border border-slate-700/50 animate-fade-in-fast flex-wrap md:flex-nowrap">
             {/* Tool Type Selector */}
             <div className="flex items-center space-x-1 border-r border-slate-700/80 pr-3 flex-shrink-0">
               <button
@@ -794,7 +796,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
         {/* Floating Bottom Navigation Toolbar */}
         {!isReadOnly && !project.isLocked && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-full shadow-xl p-1 flex items-center space-x-1 z-25 border border-slate-200">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-full shadow-xl p-1 flex items-center space-x-1 z-50 border border-slate-200">
             <button
               onClick={(e) => {
                 e.stopPropagation();
