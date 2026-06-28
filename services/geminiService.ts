@@ -63,7 +63,7 @@ export const analyzeImages = async (images: { base64Data: string; mimeType: stri
   }
 
   const prompt = `
-    You are an expert UI/UX and design critic. Provide a cohesive visual analysis covering all provided images. If there are multiple images, compare and contrast them where relevant. Use markdown for clear formatting.
+    You are an expert UI/UX and frontend engineering critic. Provide a cohesive visual analysis covering all provided images. If there are multiple images, compare and contrast them where relevant. Use markdown for clear formatting.
 
     **1. Overall Impression & Concept Alignment:**
     - What is your first impression of the design(s)?
@@ -75,18 +75,15 @@ export const analyzeImages = async (images: { base64Data: string; mimeType: stri
     - Comment on the use of white space, alignment, and visual hierarchy. Are these consistent if multiple images are provided?
     - Are UI elements (buttons, forms, navigation) clear and consistent?
 
-    **3. Color Palette:**
-    - Describe the color scheme(s).
-    - Is the color palette harmonious? Does it evoke the right mood or emotion for the brand?
-    - Assess the contrast and accessibility of the colors used.
+    **3. Responsive Auditing & CSS Fixes:**
+    - Actively scan the images for responsive layout bugs (e.g. text-wrap issues, overflow issues, squashed buttons, overlapping elements, or alignment glitches).
+    - Suggest the exact CSS fix (e.g. \`flex-wrap: wrap;\`, \`overflow: hidden;\`, \`word-break: break-all;\`, \`justify-content: center;\`, or padding adjustments) for each bug you identify. Make it clear and educational so a student can implement it.
 
-    **4. Typography:**
-    - Analyze the font choices (headings, body text). Are they legible and appropriate for the content?
-    - Is there a clear typographic hierarchy?
-    - How does the typography contribute to the overall aesthetic?
+    **4. Color Palette & Typography:**
+    - Assess color harmony, contrast accessibility, font choices, legibility, and visual hierarchy.
 
-    **5. Suggestions for Improvement:**
-    - Based on your analysis, provide 2-3 actionable suggestions to enhance the design(s). If comparing multiple designs, state which one is stronger and why.
+    **5. Actionable Suggestions for Improvement:**
+    - Provide 2-3 specific, actionable recommendations to elevate both the design and the frontend implementation quality.
   `;
 
   try {
@@ -102,7 +99,7 @@ export const analyzeImages = async (images: { base64Data: string; mimeType: stri
     };
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents: { parts: [...imageParts, textPart] },
     });
 

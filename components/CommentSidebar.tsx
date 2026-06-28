@@ -390,6 +390,7 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, 
        <VisualAnalysisModal 
          isOpen={isAnalysisModalOpen}
          onClose={() => setIsAnalysisModalOpen(false)}
+         project={project}
        />
 
        {viewingAttachment && (

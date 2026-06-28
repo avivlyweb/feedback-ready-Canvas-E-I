@@ -1,4 +1,4 @@
-import React, { useRef, MouseEvent as ReactMouseEvent, useState, useEffect } from 'react';
+import React, { useRef, MouseEvent as ReactMouseEvent, useState, useEffect, useCallback, useMemo } from 'react';
 import { Project, ContentType, CommentStatus, Comment } from '../types';
 import { ChatBubbleOvalLeftEllipsisIcon, CursorArrowRaysIcon, DevicePhoneMobileIcon, DeviceTabletIcon, ComputerDesktopIcon, ArrowsPointingOutIcon, LockClosedIcon, XMarkIcon, LassoIcon, RectangleIcon } from './icons';
 import PinPopover from './PinPopover';
@@ -265,6 +265,13 @@ interface AnnotationCanvasProps {
   isReadOnly?: boolean;
 }
 
+export type Point = { x: number; y: number }; // percentage from 0 to 100
+
+export type Drawing = 
+  | { type: 'freehand'; points: Point[]; color: string; width: number }
+  | { type: 'circle'; start: Point; end: Point; color: string; width: number }
+  | { type: 'arrow'; start: Point; end: Point; color: string; width: number };
+
 const viewports = {
   mobile: '375px',
   tablet: '768px',
@@ -318,6 +325,217 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const cropperContainerRef = useRef<HTMLDivElement>(null);
   const [cropperImageElement, setCropperImageElement] = useState<HTMLImageElement | null>(null);
   const [iframeWidth, setIframeWidth] = useState<string | null>(viewports.full);
+
+  // Drawing states
+  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingDisplayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [isBrushMode, setIsBrushMode] = useState(false);
+  const [brushColor, setBrushColor] = useState('#ef4444'); // Tailwind red-500
+  const [brushWidth, setBrushWidth] = useState(4);
+  const [brushType, setBrushType] = useState<'freehand' | 'circle' | 'arrow'>('freehand');
+  const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
+
+  // Load drawings from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(`drawings-${project.id}`);
+    if (saved) {
+      try {
+        setDrawings(JSON.parse(saved));
+      } catch (e) {
+        console.error("Error loading drawings", e);
+      }
+    } else {
+      setDrawings([]);
+    }
+  }, [project.id]);
+
+  const saveDrawingsToLocalStorage = (newDrawings: Drawing[]) => {
+    localStorage.setItem(`drawings-${project.id}`, JSON.stringify(newDrawings));
+  };
+
+  const handleSetBrushMode = (active: boolean) => {
+    setIsBrushMode(active);
+    if (active) {
+      onSelectPin(null);
+    }
+  };
+
+  const getPercentCoords = (e: ReactMouseEvent<HTMLCanvasElement>): Point | null => {
+    const canvas = drawingCanvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const pixelX = e.clientX - rect.left;
+    const pixelY = e.clientY - rect.top;
+    return {
+      x: (pixelX / rect.width) * 100,
+      y: (pixelY / rect.height) * 100
+    };
+  };
+
+  const handleDrawingMouseDown = (e: ReactMouseEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0) return;
+    const coords = getPercentCoords(e);
+    if (!coords) return;
+
+    if (brushType === 'freehand') {
+      setCurrentDrawing({
+        type: 'freehand',
+        points: [coords],
+        color: brushColor,
+        width: brushWidth
+      });
+    } else {
+      setCurrentDrawing({
+        type: brushType,
+        start: coords,
+        end: coords,
+        color: brushColor,
+        width: brushWidth
+      });
+    }
+  };
+
+  const handleDrawingMouseMove = (e: ReactMouseEvent<HTMLCanvasElement>) => {
+    if (!currentDrawing) return;
+    const coords = getPercentCoords(e);
+    if (!coords) return;
+
+    if (currentDrawing.type === 'freehand') {
+      setCurrentDrawing({
+        ...currentDrawing,
+        points: [...currentDrawing.points, coords]
+      });
+    } else {
+      setCurrentDrawing({
+        ...currentDrawing,
+        end: coords
+      });
+    }
+  };
+
+  const handleDrawingMouseUp = () => {
+    if (currentDrawing) {
+      const newDrawings = [...drawings, currentDrawing];
+      setDrawings(newDrawings);
+      saveDrawingsToLocalStorage(newDrawings);
+      setCurrentDrawing(null);
+    }
+  };
+
+  // Redraw helpers
+  const drawCircle = (ctx: CanvasRenderingContext2D, start: {x: number; y: number}, end: {x: number; y: number}, color: string, width: number) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+    ctx.arc(start.x, start.y, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+  };
+
+  const drawArrow = (ctx: CanvasRenderingContext2D, start: {x: number; y: number}, end: {x: number; y: number}, color: string, width: number) => {
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+    
+    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+    const headLength = 15;
+    ctx.beginPath();
+    ctx.moveTo(end.x, end.y);
+    ctx.lineTo(end.x - headLength * Math.cos(angle - Math.PI / 6), end.y - headLength * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(end.x - headLength * Math.cos(angle + Math.PI / 6), end.y - headLength * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  const drawOneDrawing = useCallback((drawing: Drawing, ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    const toPixels = (p: Point) => ({
+      x: (p.x / 100) * w,
+      y: (p.y / 100) * h
+    });
+
+    if (drawing.type === 'freehand') {
+      if (drawing.points.length < 1) return;
+      ctx.strokeStyle = drawing.color;
+      ctx.lineWidth = drawing.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      
+      const start = toPixels(drawing.points[0]);
+      ctx.moveTo(start.x, start.y);
+      for (let i = 1; i < drawing.points.length; i++) {
+        const pt = toPixels(drawing.points[i]);
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.stroke();
+    } else if (drawing.type === 'circle') {
+      drawCircle(ctx, toPixels(drawing.start), toPixels(drawing.end), drawing.color, drawing.width);
+    } else if (drawing.type === 'arrow') {
+      drawArrow(ctx, toPixels(drawing.start), toPixels(drawing.end), drawing.color, drawing.width);
+    }
+  }, []);
+
+  const drawAllOnCanvas = useCallback((canvas: HTMLCanvasElement | null, drawingsList: Drawing[], activeDrawing: Drawing | null) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const parent = canvas.parentElement;
+    if (parent) {
+      const width = parent.scrollWidth;
+      const height = parent.scrollHeight;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawingsList.forEach(d => drawOneDrawing(d, ctx, canvas.width, canvas.height));
+    if (activeDrawing) {
+      drawOneDrawing(activeDrawing, ctx, canvas.width, canvas.height);
+    }
+  }, [drawOneDrawing]);
+
+  // Handle active drawing updates
+  useEffect(() => {
+    if (isBrushMode) {
+      drawAllOnCanvas(drawingCanvasRef.current, drawings, currentDrawing);
+    }
+  }, [isBrushMode, drawings, currentDrawing, drawAllOnCanvas]);
+
+  // Handle inactive display drawing updates
+  useEffect(() => {
+    if (!isBrushMode) {
+      drawAllOnCanvas(drawingDisplayCanvasRef.current, drawings, null);
+    }
+  }, [isBrushMode, drawings, drawAllOnCanvas]);
+
+  // Observe resize to adapt canvas dimensions dynamically
+  useEffect(() => {
+    const container = canvasRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      if (isBrushMode) {
+        drawAllOnCanvas(drawingCanvasRef.current, drawings, currentDrawing);
+      } else {
+        drawAllOnCanvas(drawingDisplayCanvasRef.current, drawings, null);
+      }
+    });
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isBrushMode, drawings, currentDrawing, drawAllOnCanvas]);
 
   const handleCanvasClick = (e: ReactMouseEvent<HTMLDivElement>) => {
     if(isImageScreenshotMode || fullPageScreenshotForCrop) return;
@@ -387,6 +605,26 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
             containerRef={canvasRef}
             onScreenshot={onScreenshot}
             onCancel={onScreenshotCancel}
+          />
+        )}
+
+        {/* Drawing Overlay Canvas (Active when in Brush Mode) */}
+        {isBrushMode && (
+          <canvas
+            ref={drawingCanvasRef}
+            className="absolute top-0 left-0 z-30 cursor-crosshair bg-transparent"
+            onMouseDown={handleDrawingMouseDown}
+            onMouseMove={handleDrawingMouseMove}
+            onMouseUp={handleDrawingMouseUp}
+            onMouseLeave={handleDrawingMouseUp}
+          />
+        )}
+
+        {/* Display Drawing Canvas (Visible overlay when Brush Mode is Inactive) */}
+        {!isBrushMode && drawings.length > 0 && (
+          <canvas
+            ref={drawingDisplayCanvasRef}
+            className="absolute top-0 left-0 z-0 pointer-events-none bg-transparent"
           />
         )}
         
@@ -461,42 +699,155 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           </div>
         )}
 
-        {project.type === ContentType.URL && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg p-1 flex items-center space-x-1 z-20 border border-slate-200">
+        {/* Brush Highlighting Floating Control Panel */}
+        {isBrushMode && (
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur text-white rounded-2xl shadow-xl px-4 py-2.5 flex items-center space-x-4 z-40 border border-slate-700/50 animate-fade-in-fast flex-wrap md:flex-nowrap">
+            {/* Tool Type Selector */}
+            <div className="flex items-center space-x-1 border-r border-slate-700/80 pr-3 flex-shrink-0">
+              <button
+                onClick={() => setBrushType('freehand')}
+                className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'freehand' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                title="Pen"
+              >
+                <span className="mr-1">✏️</span> Pen
+              </button>
+              <button
+                onClick={() => setBrushType('circle')}
+                className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'circle' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                title="Circle Highlight"
+              >
+                <span className="mr-1">⭕</span> Circle
+              </button>
+              <button
+                onClick={() => setBrushType('arrow')}
+                className={`px-2.5 py-1.5 rounded-lg transition text-xs font-bold flex items-center ${brushType === 'arrow' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                title="Arrow Pointer"
+              >
+                <span className="mr-1">🏹</span> Arrow
+              </button>
+            </div>
+
+            {/* Color Selector */}
+            <div className="flex items-center space-x-2 border-r border-slate-700/80 pr-3 flex-shrink-0">
+              {[
+                { hex: '#ef4444', label: 'Vibrant Red' },
+                { hex: '#eab308', label: 'Highlighter Yellow' },
+                { hex: '#06b6d4', label: 'Electric Cyan' },
+                { hex: '#a855f7', label: 'Neon Purple' },
+              ].map(color => (
+                <button
+                  key={color.hex}
+                  onClick={() => setBrushColor(color.hex)}
+                  className={`w-5.5 h-5.5 rounded-full border-2 transition-transform hover:scale-110 ${brushColor === color.hex ? 'border-white scale-110 shadow-sm' : 'border-transparent'}`}
+                  style={{ backgroundColor: color.hex }}
+                  title={color.label}
+                />
+              ))}
+            </div>
+
+            {/* Brush Width Selector */}
+            <div className="flex items-center space-x-2 border-r border-slate-700/80 pr-3 text-xs text-slate-300 font-semibold flex-shrink-0">
+              <span>Size:</span>
+              <input
+                type="range"
+                min="2"
+                max="12"
+                value={brushWidth}
+                onChange={(e) => setBrushWidth(parseInt(e.target.value))}
+                className="w-14 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+              <span className="w-3 text-center">{brushWidth}</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-1.5 flex-shrink-0">
+              <button
+                onClick={() => {
+                  if (drawings.length > 0) {
+                    const nextDrawings = drawings.slice(0, -1);
+                    setDrawings(nextDrawings);
+                    saveDrawingsToLocalStorage(nextDrawings);
+                  }
+                }}
+                disabled={drawings.length === 0}
+                className="px-2 py-1 text-[10px] font-extrabold rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40 transition"
+                title="Undo last line"
+              >
+                Undo
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to clear all highlights?")) {
+                    setDrawings([]);
+                    localStorage.removeItem(`drawings-${project.id}`);
+                  }
+                }}
+                disabled={drawings.length === 0}
+                className="px-2 py-1 text-[10px] font-extrabold rounded bg-red-950 hover:bg-red-900 text-red-300 disabled:opacity-40 transition"
+                title="Clear all highlights"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Bottom Navigation Toolbar */}
+        {!isReadOnly && !project.isLocked && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-full shadow-xl p-1 flex items-center space-x-1 z-25 border border-slate-200">
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                handleSetBrushMode(false);
                 if (mode === 'browse') onSelectPin(null);
                 onSetMode('comment');
               }}
-              className={`px-4 py-2 rounded-full flex items-center space-x-2 text-sm font-medium transition-colors ${
-                mode === 'comment' 
-                  ? 'bg-indigo-600 text-white shadow' 
-                  : 'hover:bg-slate-100 text-slate-600'
+              className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+                !isBrushMode && mode === 'comment' 
+                  ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                  : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
               }`}
-              aria-pressed={mode === 'comment'}
-              title="Comment Mode"
+              title="Add interactive comments"
             >
-              <ChatBubbleOvalLeftEllipsisIcon className="w-5 h-5" />
-              <span>Comment</span>
+              <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" />
+              <span>Comment Pin</span>
             </button>
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (mode === 'comment') onSelectPin(null);
-                onSetMode('browse');
+                handleSetBrushMode(true);
               }}
-              className={`px-4 py-2 rounded-full flex items-center space-x-2 text-sm font-medium transition-colors ${
-                mode === 'browse' 
-                  ? 'bg-indigo-600 text-white shadow' 
-                  : 'hover:bg-slate-100 text-slate-600'
+              className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+                isBrushMode 
+                  ? 'bg-purple-600 text-white shadow-md scale-105' 
+                  : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
               }`}
-               aria-pressed={mode === 'browse'}
-               title="Browse Mode"
+              title="Draw highlights and annotations"
             >
-              <CursorArrowRaysIcon className="w-5 h-5" />
-              <span>Browse</span>
+              <span className="text-sm">✏️</span>
+              <span>Highlight Brush</span>
             </button>
+
+            {project.type === ContentType.URL && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSetBrushMode(false);
+                  if (mode === 'comment') onSelectPin(null);
+                  onSetMode('browse');
+                }}
+                className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+                  !isBrushMode && mode === 'browse' 
+                    ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                    : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+                }`}
+                title="Browse & click around the website"
+              >
+                <CursorArrowRaysIcon className="w-4 h-4" />
+                <span>Browse Site</span>
+              </button>
+            )}
           </div>
         )}
       </div>
