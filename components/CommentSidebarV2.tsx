@@ -473,7 +473,7 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
                         onKeyDown={handleTextAreaKeyDown}
                         placeholder="Write dynamic feedback... (Cmd + Enter to save)"
                         rows={3}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none font-medium"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none font-medium"
                       />
                       {aiHint && (
                         <div className="absolute left-2 -bottom-2 text-[10px] text-indigo-400 bg-slate-950 border border-slate-800 px-2 py-0.5 rounded shadow font-semibold">

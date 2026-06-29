@@ -346,7 +346,7 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, 
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
               placeholder={`Replying to comment #${project.pins.find(p=>p.id === activePinId)?.number}...`}
-              className="w-full p-2 border border-slate-300 bg-white text-slate-800 placeholder-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              className="w-full p-2 border border-slate-300 bg-white text-slate-900 placeholder-slate-400 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium"
               rows={3}
             />
              {attachment && (
