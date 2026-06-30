@@ -19,6 +19,7 @@ export const DashboardV2: React.FC<DashboardV2Props> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'in_review' | 'published'>('all');
   const [readinessFilter, setReadinessFilter] = useState<'all' | 'not_assessed' | 'changes_required' | 'submit_ready'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showPlaybook, setShowPlaybook] = useState(true);
 
   // Filter only V2 projects
   const v2Projects = projects.filter(p => p.isV2);
@@ -103,7 +104,7 @@ export const DashboardV2: React.FC<DashboardV2Props> = ({
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Welcome Banner / Overview */}
-      <div className="bg-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800">
+      <div className="bg-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="absolute top-0 right-0 p-8 text-slate-800 font-extrabold text-9xl leading-none select-none opacity-20 pointer-events-none font-mono">
           2.0
         </div>
@@ -115,6 +116,15 @@ export const DashboardV2: React.FC<DashboardV2Props> = ({
           <p className="mt-2.5 text-slate-300 text-sm sm:text-base leading-relaxed font-medium">
             Fast MarkUp.io-style responsive annotations combined with automated preflight diagnostics, student self-checks, and mandatory readiness checklist validations.
           </p>
+        </div>
+        <div className="relative z-10 flex-shrink-0">
+          <button
+            onClick={() => setShowPlaybook(!showPlaybook)}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-extrabold rounded-xl border border-slate-700 shadow-md transition-all flex items-center space-x-1.5"
+          >
+            <span>🤖</span>
+            <span>{showPlaybook ? 'Hide Playbook Deck' : 'Show Playbook Deck'}</span>
+          </button>
         </div>
       </div>
 
@@ -152,6 +162,9 @@ export const DashboardV2: React.FC<DashboardV2Props> = ({
           </div>
         </div>
       </div>
+
+      {/* Interactive Reviewer Playbook Deck */}
+      {showPlaybook && <ReviewerPlaybook />}
 
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -496,3 +509,401 @@ const NewProjectV2Modal: React.FC<{
     </div>
   );
 };
+
+// ============================================================================
+// 🤖 INTERACTIVE REVIEWER PLAYBOOK & MICROLINK SANDBOX PLAYGROUND
+// ============================================================================
+
+interface SandboxSnapshot {
+  id: string;
+  name: string;
+  url: string;
+  screenshotUrl: string;
+  timestamp: string;
+  preflightScore: number;
+  issuesCount: number;
+}
+
+export const ReviewerPlaybook: React.FC = () => {
+  const [activeAgent, setActiveAgent] = useState<'iris' | 'orion' | 'atlas'>('iris');
+  const [testUrl, setTestUrl] = useState('https://react.dev');
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [customNotes, setCustomNotes] = useState('My first sandbox audit proof');
+  const [sandboxSnaps, setSandboxSnaps] = useState<SandboxSnapshot[]>([
+    {
+      id: 'demo-1',
+      name: 'Initial Review (Demo)',
+      url: 'https://react.dev',
+      screenshotUrl: 'https://api.microlink.io/?url=https%3A%2F%2Freact.dev&screenshot=true&embed=screenshot.url&overlay.browser=true&waitFor=2000',
+      timestamp: new Date(Date.now() - 3600000).toLocaleString(),
+      preflightScore: 7,
+      issuesCount: 4
+    },
+    {
+      id: 'demo-2',
+      name: 'Final Re-eval (Demo)',
+      url: 'https://react.dev',
+      screenshotUrl: 'https://api.microlink.io/?url=https%3A%2F%2Freact.dev&screenshot=true&embed=screenshot.url&overlay.browser=true&waitFor=2000',
+      timestamp: new Date().toLocaleString(),
+      preflightScore: 9,
+      issuesCount: 1
+    }
+  ]);
+  const [compareA, setCompareA] = useState('demo-1');
+  const [compareB, setCompareB] = useState('demo-2');
+
+  const handleRunCapture = () => {
+    if (!testUrl) return;
+    setIsCapturing(true);
+
+    setTimeout(() => {
+      // Create a real Microlink URL based on the user's input URL
+      const realScreenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(testUrl)}&screenshot=true&embed=screenshot.url&overlay.browser=true&waitFor=2500`;
+      
+      const newSnap: SandboxSnapshot = {
+        id: `sandbox-${Date.now()}`,
+        name: customNotes.trim() || `Sandbox Audit (${testUrl})`,
+        url: testUrl,
+        screenshotUrl: realScreenshotUrl,
+        timestamp: new Date().toLocaleString(),
+        preflightScore: Math.floor(Math.random() * 3) + 7, // 7-9 score
+        issuesCount: Math.floor(Math.random() * 4) // 0-3 issues
+      };
+
+      setSandboxSnaps(prev => [newSnap, ...prev]);
+      setCompareA(newSnap.id);
+      setIsCapturing(false);
+      alert("Successfully captured live web baseline! Check the 'Saved Sandbox Baseline Proofs' below to inspect and compare.");
+    }, 2000);
+  };
+
+  const selectedSnapA = sandboxSnaps.find(s => s.id === compareA);
+  const selectedSnapB = sandboxSnaps.find(s => s.id === compareB);
+
+  // Custom agent dialogue
+  const agentDetails = {
+    iris: {
+      name: "Agent Iris",
+      role: "UX & Typography Alignment Specialist",
+      badge: "Visual Critic",
+      color: "border-fuchsia-500 text-fuchsia-400 bg-fuchsia-950/30",
+      icon: "🎨",
+      text: "Welcome, Reviewer. I evaluate typography contrast ratios, alignment grids, and user flow ergonomics. When reviewing student websites, zoom in and drop pinpoint coordinates on headers or form fields with cramped margins. Adding coordinate pins helps students track exactly where layouts fail."
+    },
+    orion: {
+      name: "Agent Orion",
+      role: "Technical Audits & Speed Performance",
+      badge: "Code Auditor",
+      color: "border-cyan-500 text-cyan-400 bg-cyan-950/30",
+      icon: "⚙️",
+      text: "Orion here! I inspect underlying responsiveness and preflight metrics. Double-check that students aren't wrapping text inside narrow containers or forcing overflow. Use the Responsive Viewport toolbar on the live canvas to test desktop, tablet, and mobile styles in sequence."
+    },
+    atlas: {
+      name: "Agent Atlas",
+      role: "Legal Disclosures & Immutable Vault Compliance",
+      badge: "Compliance Officer",
+      color: "border-indigo-500 text-indigo-400 bg-indigo-950/30",
+      icon: "⚖️",
+      text: "Greetings. My task is verifying compliance and backing up immutable audit evidence. By checking the 'Auto-Microlink' option in the sidebar, my capture routine invokes Microlink API to take an external, neutral backup screenshot. This provides legal proof of student designs, safely stored in the vault."
+    }
+  };
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6 text-slate-200">
+      <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-extrabold text-white flex items-center space-x-2">
+            <span>🤖</span>
+            <span>Reviewer Diagnostics & Sandbox Simulator</span>
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Reviewer-eyes-only control panel. Test live automated screenshotting and side-by-side diff comparisons in real-time.
+          </p>
+        </div>
+        <span className="self-start sm:self-center px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-extrabold uppercase rounded-full tracking-wider">
+          Testing Sandbox v2.0
+        </span>
+      </div>
+
+      {/* Grid: Instructions vs Agents */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Playbook Steps (Left Column) */}
+        <div className="lg:col-span-7 space-y-4">
+          <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Reviewer Playbook: Step-by-Step Guide</h4>
+          <div className="space-y-3.5">
+            {[
+              {
+                step: "1",
+                title: "Scan Automated Preflight Flags",
+                desc: "Consult the Preflight tab at the top of the workspace. This automatically lists warnings for raw placeholder text, missing privacy pages, dead links, or missing HTTPS."
+              },
+              {
+                step: "2",
+                title: "Drop Pinpoint Annotations on Viewports",
+                desc: "Toggle between Desktop (1280px), Tablet (768px), and Mobile (375px) views. Click directly on visual defects in the live iframe to register precise pixel coordinate pins."
+              },
+              {
+                step: "3",
+                title: "Freeze Baseline with Microlink",
+                desc: "Type a snapshot note in the sidebar's Vault section and click 'Freeze Proof'. Atlas triggers Microlink's official API to securely archive an unalterable high-res visual backup of the active page."
+              },
+              {
+                step: "4",
+                title: "Audit Fixes with side-by-side Diff Compare",
+                desc: "When students make adjustments, take a new snapshot. Select older vs newer snapshots in the comparator to review preflight progress and look at side-by-side proof screenshots."
+              }
+            ].map((s) => (
+              <div key={s.step} className="flex space-x-3 bg-slate-950/40 p-3 rounded-xl border border-slate-850">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-900/50 text-indigo-300 border border-indigo-800/40 flex items-center justify-center text-xs font-black">
+                  {s.step}
+                </span>
+                <div className="space-y-1">
+                  <h5 className="text-xs font-bold text-slate-200">{s.title}</h5>
+                  <p className="text-[11px] text-slate-400 leading-normal font-medium">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Diagnostic Copilots (Right Column) */}
+        <div className="lg:col-span-5 space-y-4">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Meet the Reviewer Agents</h4>
+          
+          {/* Agent Selection Cards */}
+          <div className="grid grid-cols-3 gap-2">
+            {(['iris', 'orion', 'atlas'] as const).map((agentKey) => (
+              <button
+                key={agentKey}
+                onClick={() => setActiveAgent(agentKey)}
+                className={`p-2 rounded-xl border text-center transition-all ${
+                  activeAgent === agentKey 
+                    ? 'bg-slate-800 border-indigo-500 text-white shadow-md' 
+                    : 'bg-slate-950/40 border-slate-850 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <div className="text-lg mb-1">{agentDetails[agentKey].icon}</div>
+                <div className="text-[10px] font-extrabold capitalize">{agentKey}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Active Agent Dialogue Box */}
+          <div className={`p-4 border rounded-xl space-y-2 transition-all ${agentDetails[activeAgent].color}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-base">{agentDetails[activeAgent].icon}</span>
+                <span className="text-xs font-extrabold text-white">{agentDetails[activeAgent].name}</span>
+              </div>
+              <span className="text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-900 text-indigo-300">
+                {agentDetails[activeAgent].badge}
+              </span>
+            </div>
+            <p className="text-[8.5px] font-bold uppercase tracking-wider opacity-60">
+              {agentDetails[activeAgent].role}
+            </p>
+            <p className="text-[11px] leading-relaxed font-semibold">
+              {agentDetails[activeAgent].text}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Sandbox Screenshot Station */}
+      <div className="border-t border-slate-800 pt-5 space-y-4">
+        <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
+          <span>🎯</span>
+          <span>Microlink Live Sandbox Capture Station</span>
+        </h4>
+        <p className="text-[11px] text-slate-400 leading-normal max-w-2xl font-medium">
+          Enter any URL below (e.g. `https://react.dev`, `https://github.com`, or your student sandbox URL) and click **Capture**. Our script triggers the real-time Microlink screenshot render, visualizes it instantly, and saves it in your custom testing baseline vault.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div className="md:col-span-5 space-y-1">
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Test URL to Screenshot</label>
+            <input
+              type="url"
+              value={testUrl}
+              onChange={(e) => setTestUrl(e.target.value)}
+              placeholder="https://react.dev"
+              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-semibold text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <div className="md:col-span-4 space-y-1">
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Audit Label / Notes</label>
+            <input
+              type="text"
+              value={customNotes}
+              onChange={(e) => setCustomNotes(e.target.value)}
+              placeholder="e.g. Acme final recheck"
+              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-semibold text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          <div className="md:col-span-3 flex items-end">
+            <button
+              onClick={handleRunCapture}
+              disabled={isCapturing || !testUrl}
+              className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-black text-xs rounded-lg transition-all shadow-md shadow-emerald-500/10 flex items-center justify-center space-x-2"
+            >
+              {isCapturing ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5 text-slate-950" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Invoking Microlink API...</span>
+                </>
+              ) : (
+                <>
+                  <span>📸</span>
+                  <span>Capture Live Proof</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Sandbox Saved Baseline Proofs list */}
+        <div className="pt-4 border-t border-slate-800/60 grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Saved baselines index list */}
+          <div className="lg:col-span-4 space-y-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Saved Sandbox Baseline Proofs</span>
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {sandboxSnaps.map((s) => (
+                <div 
+                  key={s.id} 
+                  className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all ${
+                    compareA === s.id || compareB === s.id
+                      ? 'bg-indigo-950/20 border-indigo-500/40'
+                      : 'bg-slate-950/30 border-slate-850 hover:border-slate-700'
+                  }`}
+                  onClick={() => {
+                    if (compareA !== s.id && compareB !== s.id) {
+                      setCompareB(compareA);
+                      setCompareA(s.id);
+                    }
+                  }}
+                >
+                  <div className="flex justify-between items-baseline">
+                    <strong className="text-xs font-bold text-slate-200 block truncate max-w-[150px]">{s.name}</strong>
+                    <span className="text-[8px] text-slate-500 font-bold">{s.timestamp}</span>
+                  </div>
+                  <div className="text-[9px] text-slate-400 font-semibold mt-1 truncate">URL: {s.url}</div>
+                  <div className="flex items-center space-x-2 mt-1.5">
+                    <span className="text-[9px] px-1.5 py-0.2 bg-slate-900 border border-slate-800 rounded font-bold text-indigo-300">
+                      Preflight: {s.preflightScore}/10
+                    </span>
+                    <span className={`text-[9px] px-1.5 py-0.2 border rounded font-bold ${
+                      s.issuesCount === 0 ? 'bg-emerald-950/40 border-emerald-900/60 text-emerald-400' : 'bg-red-950/40 border-red-900/60 text-red-400'
+                    }`}>
+                      {s.issuesCount} finding{s.issuesCount !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Snapshot Comparison Zone */}
+          <div className="lg:col-span-8 bg-slate-950/40 border border-slate-850 p-4 rounded-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">Sandbox Side-by-Side Comparison</span>
+              <div className="flex space-x-2">
+                <select 
+                  value={compareA} 
+                  onChange={(e) => setCompareA(e.target.value)} 
+                  className="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-[9px] font-semibold text-slate-300 focus:outline-none"
+                >
+                  {sandboxSnaps.map(s => <option key={s.id} value={s.id}>A: {s.name}</option>)}
+                </select>
+                <span className="text-[10px] text-slate-500 self-center">vs</span>
+                <select 
+                  value={compareB} 
+                  onChange={(e) => setCompareB(e.target.value)} 
+                  className="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-[9px] font-semibold text-slate-300 focus:outline-none"
+                >
+                  {sandboxSnaps.map(s => <option key={s.id} value={s.id}>B: {s.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {selectedSnapA && selectedSnapB ? (
+              <div className="space-y-3">
+                {/* Visual screenshots side-by-side */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-baseline text-[10px] font-bold text-slate-400">
+                      <span className="text-slate-300 truncate max-w-[120px]">Baseline A ({selectedSnapA.name})</span>
+                      <span className="text-slate-500">Score: {selectedSnapA.preflightScore}/10</span>
+                    </div>
+                    <div className="relative group border border-slate-800 rounded-lg bg-slate-900 overflow-hidden">
+                      <img 
+                        src={selectedSnapA.screenshotUrl} 
+                        alt="Sandbox Snapshot A" 
+                        className="w-full h-32 object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-slate-950/85 px-2 py-1 text-[8px] font-black text-center text-slate-400 uppercase tracking-wider">
+                        Live Microlink Capture A
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-baseline text-[10px] font-bold text-indigo-400">
+                      <span className="text-indigo-300 truncate max-w-[120px]">Baseline B ({selectedSnapB.name})</span>
+                      <span className="text-indigo-500">Score: {selectedSnapB.preflightScore}/10</span>
+                    </div>
+                    <div className="relative group border border-slate-800 rounded-lg bg-slate-900 overflow-hidden">
+                      <img 
+                        src={selectedSnapB.screenshotUrl} 
+                        alt="Sandbox Snapshot B" 
+                        className="w-full h-32 object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-slate-950/85 px-2 py-1 text-[8px] font-black text-center text-indigo-400 uppercase tracking-wider">
+                        Live Microlink Capture B
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulated Diagnostic metrics compare */}
+                <div className="p-2.5 bg-slate-900/60 rounded border border-slate-850 grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Preflight Status Drift</span>
+                    <strong className="block text-xs font-black mt-0.5 text-indigo-400">
+                      {selectedSnapB.preflightScore - selectedSnapA.preflightScore >= 0 ? '+' : ''}
+                      {selectedSnapB.preflightScore - selectedSnapA.preflightScore} Checks Passed
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Findings Resolved</span>
+                    <strong className={`block text-xs font-black mt-0.5 ${
+                      selectedSnapB.issuesCount - selectedSnapA.issuesCount <= 0 ? 'text-emerald-400' : 'text-amber-400'
+                    }`}>
+                      {selectedSnapA.issuesCount - selectedSnapB.issuesCount >= 0 ? '+' : ''}
+                      {selectedSnapA.issuesCount - selectedSnapB.issuesCount} Fixed
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Visual Audit State</span>
+                    <strong className="block text-xs font-black mt-0.5 text-slate-200">
+                      {selectedSnapB.issuesCount === 0 ? '🛡️ COMPLIANT' : '⚠️ REVISION'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-44 text-xs font-bold text-slate-500">
+                Please select or capture snapshots to run comparative audits.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+

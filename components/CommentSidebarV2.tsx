@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Project, Pin, Comment as CommentType, CommentStatus } from '../types';
+import { Project, Pin, Comment as CommentType, CommentStatus, ContentType } from '../types';
 import { generateV2EvaluationSummary, runAIPrescan } from '../services/geminiService';
 import { 
   ArrowLeftIcon, 

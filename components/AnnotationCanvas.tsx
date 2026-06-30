@@ -325,6 +325,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const cropperContainerRef = useRef<HTMLDivElement>(null);
   const [cropperImageElement, setCropperImageElement] = useState<HTMLImageElement | null>(null);
   const [iframeWidth, setIframeWidth] = useState<string | null>(viewports.full);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
 
   // Drawing states
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -539,6 +540,28 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     };
   }, [isBrushMode, drawings, currentDrawing, drawAllOnCanvas]);
 
+  const handleCanvasMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if (mode !== 'comment' || project.isLocked || isReadOnly || isImageScreenshotMode || fullPageScreenshotForCrop || isBrushMode) {
+      setMousePosition(null);
+      return;
+    }
+    // Check if hovering over pins or popovers
+    if ((e.target as HTMLElement).closest('.pin-element') || (e.target as HTMLElement).closest('.pin-popover') || (e.target as HTMLElement).closest('.screenshot-tool')) {
+      setMousePosition(null);
+      return;
+    }
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
+      const y = e.clientY - rect.top + canvasRef.current.scrollTop;
+      setMousePosition({ x, y });
+    }
+  };
+
+  const handleCanvasMouseLeave = () => {
+    setMousePosition(null);
+  };
+
   const handleCanvasClick = (e: ReactMouseEvent<HTMLDivElement>) => {
     if(isImageScreenshotMode || fullPageScreenshotForCrop) return;
     
@@ -562,6 +585,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         else if (iframeWidth === '1280px') activeViewportString = 'desktop';
 
         onAddPin(x, y, activeViewportString);
+        setMousePosition(null); // Reset after placing
       }
     } else {
       onSelectPin(null);
@@ -574,7 +598,6 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   return (
     <div className="relative w-full h-full flex flex-col">
-       {project.type === ContentType.URL && <ResponsiveToolbar onResize={setIframeWidth} activeWidth={iframeWidth} />}
       
       {fullPageScreenshotForCrop && (
         <div 
@@ -604,8 +627,10 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
       <div
         ref={canvasRef}
-        className={`w-full h-full relative overflow-auto flex-grow ${project.type === ContentType.URL && mode === 'comment' && !project.isLocked && !isImageScreenshotMode ? 'cursor-crosshair' : 'cursor-default'}`}
+        className={`w-full h-full relative overflow-auto flex-grow ${project.type === ContentType.URL && mode === 'comment' && !project.isLocked && !isImageScreenshotMode && !isBrushMode ? 'cursor-none' : 'cursor-default'}`}
         onClick={handleCanvasClick}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseLeave={handleCanvasMouseLeave}
       >
         {isImageScreenshotMode && project.type === ContentType.IMAGE && imageRef.current && (
           <ScreenshotTool
@@ -691,6 +716,22 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               onTriggerImageScreenshot={onTriggerImageScreenshot}
               onTriggerUrlScreenshot={onTriggerUrlScreenshot}
             />
+        )}
+
+        {/* Pastel-style Floating Ghost Pin Cursor */}
+        {mousePosition && !activePinId && (
+          <div
+            className="absolute pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2 select-none"
+            style={{ left: `${mousePosition.x}px`, top: `${mousePosition.y}px` }}
+          >
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-600 text-white font-extrabold text-xs shadow-xl border-2 border-white ring-4 ring-indigo-500/30 animate-pulse">
+              {project.pins.length + 1}
+            </div>
+            {/* Elegant tool tip helper */}
+            <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-slate-900/90 backdrop-blur text-white text-[9px] font-black tracking-wider px-2 py-0.5 rounded shadow-lg whitespace-nowrap uppercase border border-slate-700/60">
+              Click to comment
+            </div>
+          </div>
         )}
         
         {project.isLocked && !isReadOnly && (
@@ -803,59 +844,102 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
       {/* Floating Bottom Navigation Toolbar */}
       {!isReadOnly && !project.isLocked && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-full shadow-xl p-1 flex items-center space-x-1 z-50 border border-slate-200">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleSetBrushMode(false);
-              if (mode === 'browse') onSelectPin(null);
-              onSetMode('comment');
-            }}
-            className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
-              !isBrushMode && mode === 'comment' 
-                ? 'bg-indigo-600 text-white shadow-md scale-105' 
-                : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
-            }`}
-            title="Add interactive comments"
-          >
-            <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" />
-            <span>Comment Pin</span>
-          </button>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleSetBrushMode(true);
-            }}
-            className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
-              isBrushMode 
-                ? 'bg-purple-600 text-white shadow-md scale-105' 
-                : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
-            }`}
-            title="Draw highlights and annotations"
-          >
-            <span className="text-sm">✏️</span>
-            <span>Highlight Brush</span>
-          </button>
-
-          {project.type === ContentType.URL && (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur border border-slate-800 rounded-full shadow-2xl p-1.5 flex items-center space-x-3.5 z-50 max-w-[90vw] overflow-x-auto select-none">
+          {/* Section A: Critique Actions */}
+          <div className="flex items-center space-x-1 flex-shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleSetBrushMode(false);
-                if (mode === 'comment') onSelectPin(null);
-                onSetMode('browse');
+                if (mode === 'browse') onSelectPin(null);
+                onSetMode('comment');
               }}
-              className={`px-4 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
-                !isBrushMode && mode === 'browse' 
+              className={`px-3.5 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+                !isBrushMode && mode === 'comment' 
                   ? 'bg-indigo-600 text-white shadow-md scale-105' 
-                  : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
-              title="Browse & click around the website"
+              title="Add interactive comments"
             >
-              <CursorArrowRaysIcon className="w-4 h-4" />
-              <span>Browse Site</span>
+              <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Comment Pin</span>
             </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSetBrushMode(true);
+              }}
+              className={`px-3.5 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+                isBrushMode 
+                  ? 'bg-purple-600 text-white shadow-md scale-105' 
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+              title="Draw highlights and annotations"
+            >
+              <span className="text-sm">✏️</span>
+              <span className="hidden sm:inline">Highlight Brush</span>
+            </button>
+
+            {project.type === ContentType.URL && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSetBrushMode(false);
+                  if (mode === 'comment') onSelectPin(null);
+                  onSetMode('browse');
+                }}
+                className={`px-3.5 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+                  !isBrushMode && mode === 'browse' 
+                    ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+                title="Browse & click around the website"
+              >
+                <CursorArrowRaysIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Browse Site</span>
+              </button>
+            )}
+          </div>
+
+          {/* Vertical Divider (if viewport switches are active) */}
+          {project.type === ContentType.URL && (
+            <div className="h-6 w-px bg-slate-800 flex-shrink-0" />
+          )}
+
+          {/* Section B: Integrated Responsive Viewport Switcher */}
+          {project.type === ContentType.URL && (
+            <div className="flex items-center space-x-1 pr-1 bg-slate-950/60 p-0.5 rounded-full border border-slate-850">
+              <button 
+                onClick={() => setIframeWidth(viewports.mobile)} 
+                title="Mobile viewport (375px)" 
+                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.mobile ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <DevicePhoneMobileIcon className="w-3.5 h-3.5" />
+              </button>
+              <button 
+                onClick={() => setIframeWidth(viewports.tablet)} 
+                title="Tablet viewport (768px)" 
+                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.tablet ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <DeviceTabletIcon className="w-3.5 h-3.5" />
+              </button>
+              <button 
+                onClick={() => setIframeWidth(viewports.desktop)} 
+                title="Desktop viewport (1280px)" 
+                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.desktop ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <ComputerDesktopIcon className="w-3.5 h-3.5" />
+              </button>
+              <div className="h-4 w-px bg-slate-800 mx-1" />
+              <button 
+                onClick={() => setIframeWidth(viewports.full)} 
+                title="Full width viewport" 
+                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.full ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <ArrowsPointingOutIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
       )}
