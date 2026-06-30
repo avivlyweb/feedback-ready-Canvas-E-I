@@ -55,6 +55,8 @@ const App: React.FC = () => {
       let selfCheck = dbProj.selfCheck;
       let reusableComments = dbProj.reusableComments;
       let aiSummary = dbProj.aiSummary;
+      let deadline = undefined;
+      let snapshots = undefined;
       let notes = dbProj.notes;
       let pinMetadata: Record<string, any> = {};
 
@@ -69,6 +71,8 @@ const App: React.FC = () => {
           selfCheck = parsed.selfCheck;
           reusableComments = parsed.reusableComments;
           aiSummary = parsed.aiSummary;
+          deadline = parsed.deadline;
+          snapshots = parsed.snapshots;
           notes = parsed.notes;
           pinMetadata = parsed.pinMetadata || {};
         } catch (e) {
@@ -85,6 +89,8 @@ const App: React.FC = () => {
           selfCheck = parsed.selfCheck;
           reusableComments = parsed.reusableComments;
           aiSummary = parsed.aiSummary;
+          deadline = parsed.deadline;
+          snapshots = parsed.snapshots;
           notes = parsed.notes;
           pinMetadata = parsed.pinMetadata || {};
         } catch (e) {
@@ -111,6 +117,8 @@ const App: React.FC = () => {
         selfCheck,
         reusableComments,
         aiSummary,
+        deadline,
+        snapshots,
         pins: (dbProj.pins || []).map((pin: any) => {
           const meta = pinMetadata[pin.id] || {};
           return {
@@ -176,6 +184,8 @@ const App: React.FC = () => {
       selfCheck: projArgs.selfCheck,
       reusableComments: projArgs.reusableComments,
       aiSummary: projArgs.aiSummary,
+      deadline: projArgs.deadline,
+      snapshots: projArgs.snapshots,
       notes: projArgs.notes,
       pinMetadata,
     };
@@ -243,6 +253,18 @@ const App: React.FC = () => {
       { id: "check_10", text: "Media, sources, tools, and AI-generated material are appropriately disclosed and credited.", status: "not_checked" }
     ]);
 
+    const defaultDeadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // Default deadline is 7 days from now
+    const initialSnapshot = {
+      id: `snap-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      capturedBy: 'reviewer',
+      content: url,
+      preflight: simulatedPreflight,
+      checklist: initialChecklist,
+      pinsJson: '[]',
+      notes: 'Initial Review Setup Snapshot'
+    };
+
     const projectPayload = {
       id: projectId,
       name,
@@ -260,6 +282,8 @@ const App: React.FC = () => {
       readinessStatus: "not_assessed",
       preflight: simulatedPreflight,
       checklist: initialChecklist,
+      deadline: defaultDeadline,
+      snapshots: JSON.stringify([initialSnapshot]),
       reusableComments: [
         "Please check your text contrast ratios using the WebAIM tool.",
         "Ensure all links have meaningful descriptive anchor text rather than just 'click here'.",
@@ -311,6 +335,18 @@ const App: React.FC = () => {
       { id: "check_10", text: "Media, sources, tools, and AI-generated material are appropriately disclosed and credited.", status: "not_checked" }
     ]);
 
+    const defaultDeadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // Default deadline is 7 days from now
+    const initialSnapshot = {
+      id: `snap-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      capturedBy: 'student',
+      content: data.url,
+      preflight: simulatedPreflight,
+      checklist: initialChecklist,
+      pinsJson: '[]',
+      notes: 'Initial Submission Snapshot'
+    };
+
     const projectPayload = {
       id: projectId,
       name: data.name,
@@ -329,6 +365,8 @@ const App: React.FC = () => {
       preflight: simulatedPreflight,
       checklist: initialChecklist,
       selfCheck: data.selfCheck,
+      deadline: defaultDeadline,
+      snapshots: JSON.stringify([initialSnapshot]),
       reusableComments: [
         "Please check your text contrast ratios using the WebAIM tool.",
         "Ensure all links have meaningful descriptive anchor text rather than just 'click here'.",

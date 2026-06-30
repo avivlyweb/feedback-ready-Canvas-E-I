@@ -657,13 +657,27 @@ export const StudentSubmission: React.FC<StudentSubmissionProps> = ({
                         )}
 
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-                          <span className="text-[10px] text-slate-400">
-                            {proj.createdAt.toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </span>
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-[10px] text-slate-400">
+                              Submitted: {proj.createdAt.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </span>
+                            {proj.deadline && (
+                              <span className={`text-[10px] font-semibold ${
+                                new Date() > new Date(proj.deadline) ? 'text-red-500 font-bold' : 'text-slate-500'
+                              }`}>
+                                Due: {new Date(proj.deadline).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })} {new Date() > new Date(proj.deadline) ? '(Passed)' : ''}
+                              </span>
+                            )}
+                          </div>
 
                           <div className="flex items-center space-x-2">
                             {pinCount > 0 && (

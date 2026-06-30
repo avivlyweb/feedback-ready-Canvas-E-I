@@ -57,4 +57,6 @@ export interface Project {
   selfCheck?: string; // stringified JSON
   reusableComments?: string[];
   aiSummary?: string;
+  deadline?: string; // ISO string representing submission deadline
+  snapshots?: string; // stringified JSON array of snapshots: Array<{ id: string, timestamp: string, capturedBy: 'student' | 'reviewer' | 'system', content: string, preflight?: string, checklist?: string, pinsJson?: string, notes?: string }>
 }
