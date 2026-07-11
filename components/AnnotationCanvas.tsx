@@ -274,8 +274,8 @@ export type Drawing =
 
 const viewports = {
   mobile: '375px',
-  tablet: '768px',
-  desktop: '1280px',
+  tablet: '1024px',
+  desktop: '1440px',
   full: null,
 };
 
@@ -323,9 +323,11 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   const canvasRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const cropperContainerRef = useRef<HTMLDivElement>(null);
+  const contentWrapperRef = useRef<HTMLDivElement>(null);
   const [cropperImageElement, setCropperImageElement] = useState<HTMLImageElement | null>(null);
-  const [iframeWidth, setIframeWidth] = useState<string | null>(viewports.full);
+  const [iframeWidth, setIframeWidth] = useState<string | null>(viewports.desktop);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [containerSize, setContainerSize] = useState({ width: 1000, height: 600 });
 
   // Drawing states
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -521,22 +523,34 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     }
   }, [isBrushMode, drawings, drawAllOnCanvas]);
 
-  // Observe resize to adapt canvas dimensions dynamically
+  // Observe resize to adapt canvas dimensions dynamically and track container size
   useEffect(() => {
     const container = canvasRef.current;
     if (!container) return;
 
-    const observer = new ResizeObserver(() => {
+    const updateDimensions = () => {
+      if (canvasRef.current) {
+        setContainerSize({
+          width: canvasRef.current.clientWidth,
+          height: canvasRef.current.clientHeight,
+        });
+      }
       if (isBrushMode) {
         drawAllOnCanvas(drawingCanvasRef.current, drawings, currentDrawing);
       } else {
         drawAllOnCanvas(drawingDisplayCanvasRef.current, drawings, null);
       }
-    });
+    };
+
+    updateDimensions();
+
+    const observer = new ResizeObserver(updateDimensions);
     observer.observe(container);
 
+    window.addEventListener('resize', updateDimensions);
     return () => {
       observer.disconnect();
+      window.removeEventListener('resize', updateDimensions);
     };
   }, [isBrushMode, drawings, currentDrawing, drawAllOnCanvas]);
 
@@ -550,11 +564,25 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       setMousePosition(null);
       return;
     }
-    if (canvasRef.current) {
+    const contentWrapper = contentWrapperRef.current;
+    if (contentWrapper && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
-      const y = e.clientY - rect.top + canvasRef.current.scrollTop;
-      setMousePosition({ x, y });
+      const wrapperRect = contentWrapper.getBoundingClientRect();
+      
+      const isInside = (
+        e.clientX >= wrapperRect.left &&
+        e.clientX <= wrapperRect.right &&
+        e.clientY >= wrapperRect.top &&
+        e.clientY <= wrapperRect.bottom
+      );
+      
+      if (isInside) {
+        const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
+        const y = e.clientY - rect.top + canvasRef.current.scrollTop;
+        setMousePosition({ x, y });
+      } else {
+        setMousePosition(null);
+      }
     }
   };
 
@@ -574,18 +602,31 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
         onSelectPin(null);
         return;
       }
-      if (canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        const x = ((e.clientX - rect.left + canvasRef.current.scrollLeft) / canvasRef.current.scrollWidth) * 100;
-        const y = ((e.clientY - rect.top + canvasRef.current.scrollTop) / canvasRef.current.scrollHeight) * 100;
+      const contentWrapper = contentWrapperRef.current;
+      if (contentWrapper) {
+        const rect = contentWrapper.getBoundingClientRect();
         
-        let activeViewportString = 'desktop';
-        if (iframeWidth === '375px') activeViewportString = 'mobile';
-        else if (iframeWidth === '768px') activeViewportString = 'tablet';
-        else if (iframeWidth === '1280px') activeViewportString = 'desktop';
+        const isInside = (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        );
+        
+        if (isInside) {
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          const y = ((e.clientY - rect.top) / rect.height) * 100;
+          
+          let activeViewportString = 'desktop';
+          if (iframeWidth === viewports.mobile) activeViewportString = 'mobile';
+          else if (iframeWidth === viewports.tablet) activeViewportString = 'tablet';
+          else if (iframeWidth === viewports.desktop) activeViewportString = 'desktop';
 
-        onAddPin(x, y, activeViewportString);
-        setMousePosition(null); // Reset after placing
+          onAddPin(x, y, activeViewportString);
+          setMousePosition(null); // Reset after placing
+        } else {
+          onSelectPin(null);
+        }
       }
     } else {
       onSelectPin(null);
@@ -594,6 +635,47 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
   const activePin = project.pins.find(p => p.id === activePinId);
   const showPins = project.type === ContentType.URL ? mode === 'comment' : true;
+
+  const targetWidthVal = iframeWidth ? parseInt(iframeWidth) : null;
+  
+  let scale = 1;
+  if (targetWidthVal) {
+    const maxAvailableWidth = containerSize.width - 64; // 32px padding on left/right
+    
+    if (targetWidthVal > maxAvailableWidth) {
+      scale = maxAvailableWidth / targetWidthVal;
+    }
+  }
+
+  const outerContainerStyle: React.CSSProperties = targetWidthVal ? {
+    width: `${targetWidthVal * scale}px`,
+    minWidth: `${targetWidthVal * scale}px`,
+    maxWidth: `${targetWidthVal * scale}px`,
+    height: 'calc(100% - 64px)',
+    position: 'relative',
+    transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  } : {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  };
+
+  const contentStyle: React.CSSProperties = targetWidthVal ? {
+    width: `${targetWidthVal}px`,
+    minWidth: `${targetWidthVal}px`,
+    maxWidth: `${targetWidthVal}px`,
+    height: `calc(100% / ${scale})`,
+    transform: `scale(${scale})`,
+    transformOrigin: 'top left',
+    transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  } : {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  };
 
 
   return (
@@ -627,7 +709,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
       <div
         ref={canvasRef}
-        className={`w-full h-full relative overflow-auto flex-grow ${project.type === ContentType.URL && mode === 'comment' && !project.isLocked && !isImageScreenshotMode && !isBrushMode ? 'cursor-none' : 'cursor-default'}`}
+        className={`w-full h-full relative overflow-auto flex-grow bg-slate-100/60 flex items-center justify-center p-8 ${project.type === ContentType.URL && mode === 'comment' && !project.isLocked && !isImageScreenshotMode && !isBrushMode ? 'cursor-none' : 'cursor-default'}`}
         onClick={handleCanvasClick}
         onMouseMove={handleCanvasMouseMove}
         onMouseLeave={handleCanvasMouseLeave}
@@ -641,81 +723,152 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
           />
         )}
 
-        {/* Drawing Overlay Canvas (Active when in Brush Mode) */}
-        {isBrushMode && (
-          <canvas
-            ref={drawingCanvasRef}
-            className="absolute top-0 left-0 z-30 cursor-crosshair bg-transparent"
-            onMouseDown={handleDrawingMouseDown}
-            onMouseMove={handleDrawingMouseMove}
-            onMouseUp={handleDrawingMouseUp}
-            onMouseLeave={handleDrawingMouseUp}
-          />
-        )}
-
-        {/* Display Drawing Canvas (Visible overlay when Brush Mode is Inactive) */}
-        {!isBrushMode && drawings.length > 0 && (
-          <canvas
-            ref={drawingDisplayCanvasRef}
-            className="absolute top-0 left-0 z-20 pointer-events-none bg-transparent"
-          />
-        )}
-        
         {project.type === ContentType.IMAGE ? (
-          <img ref={imageRef} src={project.content} alt={project.name} className="max-w-full max-h-full m-auto" />
-        ) : (
-          <div className="relative w-full h-full flex items-center justify-center">
-              <div
-                className="relative h-full shadow-lg bg-white"
-                style={{width: iframeWidth || '100%', transition: 'width 0.3s ease-in-out'}}
-              >
-                  <iframe
-                      src={project.content}
-                      title={project.name}
-                      className="w-full h-full border-0"
-                      sandbox="allow-scripts allow-same-origin"
-                  />
-                  <div className={`absolute top-0 left-0 w-full h-full bg-transparent ${mode === 'browse' || project.isLocked ? 'pointer-events-none' : ''}`}></div>
-              </div>
-          </div>
-        )}
-
-        {showPins && project.pins.map(pin => (
           <div
-            key={pin.id}
-            className="pin-element absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
-            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectPin(pin.id);
-            }}
+            ref={contentWrapperRef}
+            className="relative shadow-2xl bg-white max-w-full max-h-full m-auto"
           >
+            <img 
+              ref={imageRef} 
+              src={project.content} 
+              alt={project.name} 
+              className="max-w-full max-h-full block m-auto" 
+            />
+
+            {/* Drawing Overlay Canvas (Active when in Brush Mode) */}
+            {isBrushMode && (
+              <canvas
+                ref={drawingCanvasRef}
+                className="absolute inset-0 z-30 cursor-crosshair bg-transparent"
+                onMouseDown={handleDrawingMouseDown}
+                onMouseMove={handleDrawingMouseMove}
+                onMouseUp={handleDrawingMouseUp}
+                onMouseLeave={handleDrawingMouseUp}
+              />
+            )}
+
+            {/* Display Drawing Canvas (Visible overlay when Brush Mode is Inactive) */}
+            {!isBrushMode && drawings.length > 0 && (
+              <canvas
+                ref={drawingDisplayCanvasRef}
+                className="absolute inset-0 z-20 pointer-events-none bg-transparent"
+              />
+            )}
+
+            {showPins && project.pins.map(pin => (
+              <div
+                key={pin.id}
+                className="pin-element absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
+                style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectPin(pin.id);
+                }}
+              >
+                <div
+                  className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg cursor-pointer transition-all duration-200 ${
+                    pin.status === CommentStatus.RESOLVED 
+                      ? 'bg-green-500' 
+                      : 'bg-indigo-600'
+                  } ${
+                    activePinId === pin.id ? 'ring-4 ring-offset-2 ring-indigo-400 scale-110' : ''
+                  }`}
+                >
+                  <span className="text-white font-bold text-sm">{pin.number}</span>
+                </div>
+              </div>
+            ))}
+
+            {showPins && activePin && (
+              <PinPopover 
+                pin={activePin}
+                onAddComment={onAddComment}
+                onDeleteComment={commentId => onDeleteComment(activePin.id, commentId)}
+                onResolvePin={onResolvePin}
+                onClose={() => onSelectPin(null)}
+                isLocked={!!project.isLocked || isReadOnly}
+                projectType={project.type}
+                onTriggerImageScreenshot={onTriggerImageScreenshot}
+                onTriggerUrlScreenshot={onTriggerUrlScreenshot}
+              />
+            )}
+          </div>
+        ) : (
+          <div style={outerContainerStyle}>
             <div
-              className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg cursor-pointer transition-all duration-200 ${
-                pin.status === CommentStatus.RESOLVED 
-                  ? 'bg-green-500' 
-                  : 'bg-indigo-600'
-              } ${
-                activePinId === pin.id ? 'ring-4 ring-offset-2 ring-indigo-400 scale-110' : ''
-              }`}
+              ref={contentWrapperRef}
+              className="shadow-2xl bg-white border border-slate-200 rounded-xl overflow-hidden"
+              style={contentStyle}
             >
-              <span className="text-white font-bold text-sm">{pin.number}</span>
+              <iframe
+                src={project.content}
+                title={project.name}
+                width="100%"
+                height="100%"
+                className="w-full h-full border-0 block"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"
+              />
+              <div className={`absolute inset-0 bg-transparent ${mode === 'browse' || project.isLocked ? 'pointer-events-none' : ''}`}></div>
+
+              {/* Drawing Overlay Canvas (Active when in Brush Mode) */}
+              {isBrushMode && (
+                <canvas
+                  ref={drawingCanvasRef}
+                  className="absolute inset-0 z-30 cursor-crosshair bg-transparent"
+                  onMouseDown={handleDrawingMouseDown}
+                  onMouseMove={handleDrawingMouseMove}
+                  onMouseUp={handleDrawingMouseUp}
+                  onMouseLeave={handleDrawingMouseUp}
+                />
+              )}
+
+              {/* Display Drawing Canvas (Visible overlay when Brush Mode is Inactive) */}
+              {!isBrushMode && drawings.length > 0 && (
+                <canvas
+                  ref={drawingDisplayCanvasRef}
+                  className="absolute inset-0 z-20 pointer-events-none bg-transparent"
+                />
+              )}
+
+              {showPins && project.pins.map(pin => (
+                <div
+                  key={pin.id}
+                  className="pin-element absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
+                  style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectPin(pin.id);
+                  }}
+                >
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full shadow-lg cursor-pointer transition-all duration-200 ${
+                      pin.status === CommentStatus.RESOLVED 
+                        ? 'bg-green-500' 
+                        : 'bg-indigo-600'
+                    } ${
+                      activePinId === pin.id ? 'ring-4 ring-offset-2 ring-indigo-400 scale-110' : ''
+                    }`}
+                  >
+                    <span className="text-white font-bold text-sm">{pin.number}</span>
+                  </div>
+                </div>
+              ))}
+
+              {showPins && activePin && (
+                <PinPopover 
+                  pin={activePin}
+                  onAddComment={onAddComment}
+                  onDeleteComment={commentId => onDeleteComment(activePin.id, commentId)}
+                  onResolvePin={onResolvePin}
+                  onClose={() => onSelectPin(null)}
+                  isLocked={!!project.isLocked || isReadOnly}
+                  projectType={project.type}
+                  onTriggerImageScreenshot={onTriggerImageScreenshot}
+                  onTriggerUrlScreenshot={onTriggerUrlScreenshot}
+                />
+              )}
             </div>
           </div>
-        ))}
-        
-        {showPins && activePin && (
-            <PinPopover 
-              pin={activePin}
-              onAddComment={onAddComment}
-              onDeleteComment={onDeleteComment}
-              onResolvePin={onResolvePin}
-              onClose={() => onSelectPin(null)}
-              isLocked={!!project.isLocked || isReadOnly}
-              projectType={project.type}
-              onTriggerImageScreenshot={onTriggerImageScreenshot}
-              onTriggerUrlScreenshot={onTriggerUrlScreenshot}
-            />
         )}
 
         {/* Pastel-style Floating Ghost Pin Cursor */}
@@ -919,14 +1072,14 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
               </button>
               <button 
                 onClick={() => setIframeWidth(viewports.tablet)} 
-                title="Tablet viewport (768px)" 
+                title="Tablet viewport (1024px)" 
                 className={`p-2 rounded-full transition-all ${iframeWidth === viewports.tablet ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <DeviceTabletIcon className="w-3.5 h-3.5" />
               </button>
               <button 
                 onClick={() => setIframeWidth(viewports.desktop)} 
-                title="Desktop viewport (1280px)" 
+                title="Desktop viewport (1440px)" 
                 className={`p-2 rounded-full transition-all ${iframeWidth === viewports.desktop ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <ComputerDesktopIcon className="w-3.5 h-3.5" />
