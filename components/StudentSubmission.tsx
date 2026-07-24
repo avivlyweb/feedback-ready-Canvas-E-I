@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Project, ContentType, CommentStatus } from '../types';
 import { LogoIcon, LockClosedIcon, GlobeAltIcon, ArrowLeftIcon, TrashIcon, CheckCircleIcon, EyeIcon } from './icons';
+import { compressImage } from '../utils/imageCompressor';
 
 // Inline icons for completeness
 const CloudArrowUpIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -127,29 +128,33 @@ export const StudentSubmission: React.FC<StudentSubmissionProps> = ({
     setIsDragging(false);
   };
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     if (screenshots.length >= 6) {
       setFormError('You can upload up to 6 screenshots/files.');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setFormError(`File "${file.name}" exceeds the 10MB limit.`);
+    if (file.size > 20 * 1024 * 1024) {
+      setFormError(`File "${file.name}" exceeds the 20MB limit.`);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const sizeStr = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+    try {
+      const compressedDataUrl = await compressImage(file, 1000, 1000, 0.75);
+      const approxKB = Math.round((compressedDataUrl.length * 0.75) / 1024);
+      const sizeStr = approxKB > 1024 ? (approxKB / 1024).toFixed(1) + ' MB' : approxKB + ' KB';
+      
       setScreenshots((prev) => [
         ...prev,
         {
           name: file.name,
           size: sizeStr,
-          dataUrl: reader.result as string,
+          dataUrl: compressedDataUrl,
         },
       ]);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error compressing file:', err);
+      setFormError('Failed to process image file.');
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {

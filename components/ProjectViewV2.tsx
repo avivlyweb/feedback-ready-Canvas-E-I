@@ -537,25 +537,25 @@ export const ProjectViewV2: React.FC<ProjectViewV2Props> = ({
   };
 
   return (
-    <div className="space-y-4 h-[calc(100vh-10rem)] flex flex-col">
-      {/* Premium Top Navigation Bar */}
-      <div className="flex items-center justify-between bg-slate-900 px-6 py-4 rounded-xl border border-slate-800 shadow-md">
-        <div className="flex items-center space-x-3">
+    <div className="space-y-3 h-[calc(100vh-6rem)] sm:h-[calc(100vh-7rem)] min-h-[520px] flex flex-col">
+      {/* Sleek Top Navigation Bar */}
+      <div className="flex items-center justify-between bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-800 shadow-md flex-shrink-0">
+        <div className="flex items-center space-x-3 min-w-0">
           <button
             onClick={handleGoBack}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-750 transition-all focus:outline-none"
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-750 transition-all focus:outline-none flex-shrink-0"
             title="Return to Dashboard"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
           </button>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center space-x-2">
               <h2 className="text-sm font-extrabold text-white tracking-tight truncate max-w-[180px] sm:max-w-[280px]">
                 {project.name}
               </h2>
-              <span className={`px-2 py-0.5 text-[8.5px] font-black rounded uppercase tracking-wider ${
+              <span className={`px-2 py-0.5 text-[8.5px] font-black rounded uppercase tracking-wider flex-shrink-0 ${
                 project.type === ContentType.URL 
                   ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-900/50' 
                   : 'bg-emerald-950/80 text-emerald-300 border border-emerald-900/50'
@@ -563,41 +563,55 @@ export const ProjectViewV2: React.FC<ProjectViewV2Props> = ({
                 {project.type}
               </span>
               {project.isLocked && (
-                <span className="bg-red-950/80 text-red-400 border border-red-900/50 px-2 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider">
+                <span className="bg-red-950/80 text-red-400 border border-red-900/50 px-2 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider flex-shrink-0">
                   Locked
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 font-semibold truncate max-w-[200px] sm:max-w-[340px] mt-0.5 font-mono">
+            <p className="text-[10px] text-slate-400 font-semibold truncate max-w-[200px] sm:max-w-[340px] font-mono">
               {project.content}
             </p>
           </div>
         </div>
 
-        {/* Action Button: Download Report */}
-        <button
-          onClick={handleDownloadPDFReport}
-          disabled={isGeneratingPdf}
-          className="px-3 py-1.5 sm:px-4 sm:py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-extrabold text-[11px] sm:text-xs rounded-xl shadow-lg shadow-indigo-500/10 border border-indigo-500/20 hover:border-indigo-400/40 transition-all flex items-center space-x-2 shrink-0"
-        >
+        {/* Action Buttons: Share & PDF Report */}
+        <div className="flex items-center space-x-2 shrink-0">
+          <button
+            onClick={() => {
+              const shareUrl = window.location.href;
+              navigator.clipboard.writeText(shareUrl);
+              alert("🔗 Shareable Review Link copied to clipboard!\nStudents or peers opening this link can view annotations and give feedback.");
+            }}
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs rounded-lg border border-slate-700 transition-all flex items-center space-x-1.5"
+            title="Copy Pastel-style guest share link"
+          >
+            <span>🔗 Share Link</span>
+          </button>
+
+          <button
+            onClick={handleDownloadPDFReport}
+            disabled={isGeneratingPdf}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow border border-indigo-500/20 transition-all flex items-center space-x-1.5 shrink-0"
+          >
           {isGeneratingPdf ? (
             <>
               <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <span className="hidden xs:inline">Compiling...</span>
+              <span>Compiling...</span>
             </>
           ) : (
             <>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
-              <span>Download Report</span>
+              <span>Download Report (PDF)</span>
             </>
           )}
         </button>
       </div>
+    </div>
 
       {/* Mobile view switcher - visible on screens < lg */}
       <div className="flex lg:hidden bg-slate-900 p-1 rounded-xl border border-slate-800 space-x-1 flex-shrink-0">

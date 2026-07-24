@@ -4,6 +4,7 @@ import { summarizeFeedback } from '../services/geminiService';
 import { exportProjectAsPDF } from '../services/pdfExportService';
 import { ArrowLeftIcon, CheckCircleIcon, SparklesIcon, XMarkIcon, ChatBubbleOvalLeftEllipsisIcon, EyeIcon, LockClosedIcon, LockOpenIcon, PaperClipIcon, CameraIcon, TrashIcon, DocumentArrowDownIcon } from './icons';
 import VisualAnalysisModal from './VisualAnalysisModal';
+import { compressImage } from '../utils/imageCompressor';
 
 interface CommentSidebarProps {
   project: Project;
@@ -138,18 +139,19 @@ const CommentSidebar: React.FC<CommentSidebarProps> = ({ project, onAddComment, 
     }
   }, [activePinId]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compressed = await compressImage(file, 800, 800, 0.75);
         setAttachment({
-          data: reader.result as string,
+          data: compressed,
           name: file.name,
-          type: file.type
+          type: 'image/jpeg'
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Error compressing attachment:', err);
+      }
     }
   };
   

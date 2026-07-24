@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Project, ContentType, CommentStatus } from '../types';
 import { PlusIcon, GlobeAltIcon, PhotoIcon, XMarkIcon, ChatBubbleOvalLeftEllipsisIcon, DocumentDuplicateIcon, TrashIcon } from './icons';
+import { compressImage } from '../utils/imageCompressor';
 
 interface DashboardProps {
   projects: Project[];
@@ -21,7 +22,7 @@ const NewProjectModal: React.FC<{
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!projectName.trim()) {
       setError("Project name is required.");
       return;
@@ -37,18 +38,21 @@ const NewProjectModal: React.FC<{
         return;
       }
       onCreateProject(projectName, contentType, url);
+      resetAndClose();
     } else if (contentType === ContentType.IMAGE) {
       if (!imageFile) {
         setError("Please upload an image file.");
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onCreateProject(projectName, contentType, reader.result as string);
-      };
-      reader.readAsDataURL(imageFile);
+      try {
+        const compressed = await compressImage(imageFile, 1200, 1200, 0.8);
+        onCreateProject(projectName, contentType, compressed);
+        resetAndClose();
+      } catch (err) {
+        console.error('Error compressing image:', err);
+        setError("Failed to process image file.");
+      }
     }
-    resetAndClose();
   };
   
   const resetAndClose = () => {

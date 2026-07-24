@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Project, Pin, Comment as CommentType, CommentStatus, ContentType } from '../types';
-import { generateV2EvaluationSummary, runAIPrescan } from '../services/geminiService';
+import { generateV2EvaluationSummary, runAIPrescan, analyzeWebsiteDesign } from '../services/geminiService';
 import { 
   ArrowLeftIcon, 
   TrashIcon, 
@@ -40,7 +40,8 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
   isReadOnly = false,
   reviewer,
 }) => {
-  const [activeTab, setActiveTab] = useState<'findings' | 'checklist' | 'preflight' | 'ai' | 'audit'>('findings');
+  const [activeTab, setActiveTab] = useState<'findings' | 'checklist' | 'ai'>('findings');
+  const [pinFilter, setPinFilter] = useState<'all' | 'open' | 'resolved' | 'must_fix'>('all');
   const [commentText, setCommentText] = useState('');
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
@@ -105,6 +106,71 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
     } finally {
       setIsScanning(false);
     }
+  };
+
+  // AI Design Audit states
+  const [designAuditUrl, setDesignAuditUrl] = useState(project.content || '');
+  const [designAuditType, setDesignAuditType] = useState<'patient' | 'student'>('patient');
+  const [designAuditResult, setDesignAuditResult] = useState<string | null>(null);
+  const [isAuditingDesign, setIsAuditingDesign] = useState(false);
+
+  useEffect(() => {
+    if (project.content) {
+      setDesignAuditUrl(project.content);
+    }
+  }, [project.content]);
+
+  const handleRunDesignAudit = async () => {
+    if (!designAuditUrl) return;
+    setIsAuditingDesign(true);
+    setDesignAuditResult(null);
+    try {
+      let screenshotData: string | undefined = undefined;
+
+      // Check if project is image type or url type to fetch a visual snapshot for Gemini multimodal analysis
+      if (project.type === ContentType.IMAGE && project.content) {
+        screenshotData = project.content;
+      } else if (designAuditUrl) {
+        try {
+          // Fetch live rendered screenshot via Microlink API
+          const screenshotApiUrl = `https://api.microlink.io/?url=${encodeURIComponent(designAuditUrl)}&screenshot=true&embed=screenshot.url&waitFor=2500`;
+          const res = await fetch(screenshotApiUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const reader = new FileReader();
+            screenshotData = await new Promise((resolve) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          }
+        } catch (err) {
+          console.log("Microlink visual screenshot fetch bypassed:", err);
+        }
+      }
+
+      const result = await analyzeWebsiteDesign(designAuditUrl, designAuditType, screenshotData);
+      setDesignAuditResult(result);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to perform Design Audit. Please check your API_KEY.");
+    } finally {
+      setIsAuditingDesign(false);
+    }
+  };
+
+  const handleAppendAuditToSummary = () => {
+    if (!designAuditResult) return;
+    const separator = "\n\n---\n\n";
+    const combined = editableSummary 
+      ? `${editableSummary}${separator}${designAuditResult}`
+      : designAuditResult;
+    setEditableSummary(combined);
+    
+    onUpdateProject({
+      ...project,
+      aiSummary: combined,
+    });
+    alert("Design & UX Audit appended successfully to your Critique draft! Switch to the 'Critique' tab to view or refine it.");
   };
 
   const renderMarkdown = (text: string) => {
@@ -492,42 +558,30 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
         </div>
       </div>
 
-      {/* Tabs list */}
-      <div className="flex overflow-x-auto scrollbar-none border-b border-slate-800 bg-slate-950 text-[11px] font-bold flex-shrink-0 select-none whitespace-nowrap">
+      {/* Streamlined Tabs list */}
+      <div className="flex border-b border-slate-800 bg-slate-950 text-xs font-bold flex-shrink-0 select-none">
         <button
           onClick={() => setActiveTab('findings')}
-          className={`flex-1 py-3 px-3 text-center transition-colors border-b-2 ${activeTab === 'findings' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'}`}
+          className={`flex-1 py-3 px-2 text-center transition-colors border-b-2 flex items-center justify-center space-x-1.5 ${activeTab === 'findings' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
-          Findings ({project.pins.length})
+          <span>📌 Pins ({project.pins.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('checklist')}
-          className={`flex-1 py-3 px-3 text-center transition-colors border-b-2 ${activeTab === 'checklist' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'}`}
+          className={`flex-1 py-3 px-2 text-center transition-colors border-b-2 flex items-center justify-center space-x-1.5 ${activeTab === 'checklist' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
-          Checklist ({passedChecksCount}/10)
-        </button>
-        <button
-          onClick={() => setActiveTab('preflight')}
-          className={`flex-1 py-3 px-3 text-center transition-colors border-b-2 ${activeTab === 'preflight' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'}`}
-        >
-          Preflight
+          <span>📋 E&I Rubric ({passedChecksCount}/10)</span>
         </button>
         <button
           onClick={() => setActiveTab('ai')}
-          className={`flex-1 py-3 px-3 text-center transition-colors border-b-2 ${activeTab === 'ai' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'}`}
+          className={`flex-1 py-3 px-2 text-center transition-colors border-b-2 flex items-center justify-center space-x-1.5 ${activeTab === 'ai' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
-          Critique
-        </button>
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`flex-1 py-3 px-3 text-center transition-colors border-b-2 ${activeTab === 'audit' ? 'border-indigo-500 text-white bg-slate-900' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'}`}
-        >
-          ⏱️ Audit Vault
+          <span>🎨 AI Audit & Report</span>
         </button>
       </div>
 
       {/* Main tab scroll context */}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4 pb-36">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
         {/* TAB 1: FINDINGS / COMMENTS */}
         {activeTab === 'findings' && (
@@ -787,13 +841,50 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
                   💡 Click anywhere on the responsive iframe canvas to drop a review pin and write comments.
                 </div>
 
+                {/* BugHerd Style Filter Bar */}
+                {project.pins.length > 0 && (
+                  <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px] font-bold">
+                    <button
+                      onClick={() => setPinFilter('all')}
+                      className={`flex-1 py-1 px-2 rounded-md transition-colors ${pinFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      All ({project.pins.length})
+                    </button>
+                    <button
+                      onClick={() => setPinFilter('open')}
+                      className={`flex-1 py-1 px-2 rounded-md transition-colors ${pinFilter === 'open' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      Open ({project.pins.filter(p => p.status !== CommentStatus.RESOLVED).length})
+                    </button>
+                    <button
+                      onClick={() => setPinFilter('resolved')}
+                      className={`flex-1 py-1 px-2 rounded-md transition-colors ${pinFilter === 'resolved' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      Resolved ({project.pins.filter(p => p.status === CommentStatus.RESOLVED).length})
+                    </button>
+                    <button
+                      onClick={() => setPinFilter('must_fix')}
+                      className={`flex-1 py-1 px-2 rounded-md transition-colors ${pinFilter === 'must_fix' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      Blockers ({project.pins.filter(p => p.severity === 'must_fix').length})
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-2.5">
                   {project.pins.length === 0 ? (
                     <div className="py-12 text-center text-slate-500 font-bold text-xs italic">
                       No annotations placed yet.
                     </div>
                   ) : (
-                    project.pins.map((p) => {
+                    project.pins
+                      .filter((p) => {
+                        if (pinFilter === 'open') return p.status !== CommentStatus.RESOLVED;
+                        if (pinFilter === 'resolved') return p.status === CommentStatus.RESOLVED;
+                        if (pinFilter === 'must_fix') return p.severity === 'must_fix';
+                        return true;
+                      })
+                      .map((p) => {
                       const latestComment = p.comments[p.comments.length - 1]?.text || 'No annotation registered.';
                       const isMustFix = p.severity === 'must_fix';
 
@@ -960,45 +1051,115 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
           </div>
         )}
 
-        {/* TAB 4: AI RUBRIC SUMMARY */}
+        {/* TAB 3: AI DESIGN AUDIT & FINAL CRITIQUE REPORT */}
         {activeTab === 'ai' && (
-          <div className="space-y-4">
-            <div className="bg-slate-950/60 border border-slate-800 p-4 rounded-xl space-y-3.5">
-              <h4 className="text-xs font-extrabold text-slate-300 flex items-center space-x-1.5">
-                <SparklesIcon className="w-4 h-4 text-indigo-400" />
-                <span>AI evaluation & Critique Draft</span>
-              </h4>
-              <p className="text-[10px] text-slate-500 font-semibold leading-normal">
-                Compile dynamic statistics and annotations from the live review into structured evaluation markdown.
+          <div className="space-y-5">
+            {/* 1. Automated Design & UX Audit */}
+            <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-3 shadow-sm">
+              <div className="flex items-center space-x-2">
+                <span className="text-base">🎨</span>
+                <h4 className="text-xs font-bold text-indigo-200">AI Look & Feel Auditor</h4>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                Captures a live visual snapshot of the page canvas and uses Gemini Multimodal Vision AI to evaluate real colors, typography, spacing, contrast, and mobile ease-of-use.
               </p>
-              {!isReadOnly && !project.isLocked && (
+
+              <div className="space-y-2.5 pt-1">
+                <div>
+                  <label className="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Target Audience Focus</label>
+                  <select
+                    value={designAuditType}
+                    onChange={(e) => setDesignAuditType(e.target.value as 'patient' | 'student')}
+                    className="w-full p-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-semibold"
+                  >
+                    <option value="patient">Patient Education Product (Patients focus)</option>
+                    <option value="student">Student Education Product (Physio Students focus)</option>
+                  </select>
+                </div>
+
                 <button
-                  onClick={handleGenerateAISummary}
-                  disabled={isGeneratingSummary}
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1.5"
+                  onClick={handleRunDesignAudit}
+                  disabled={isAuditingDesign || !designAuditUrl}
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-2 shadow-md focus:outline-none"
                 >
-                  <span>{isGeneratingSummary ? 'Processing summary...' : 'Compile summary evaluation'}</span>
+                  <span>{isAuditingDesign ? 'Analyzing Website Design...' : '✨ Run AI Design & UX Audit'}</span>
+                </button>
+              </div>
+
+              {designAuditResult && (
+                <div className="mt-3 space-y-3 pt-2 border-t border-slate-850">
+                  <div className="max-h-72 overflow-y-auto text-slate-300 text-xs bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-1 leading-relaxed">
+                    {renderMarkdown(designAuditResult)}
+                  </div>
+                  <button
+                    onClick={handleAppendAuditToSummary}
+                    className="w-full py-1.5 bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 font-bold text-xs rounded-lg border border-indigo-700/50 transition-all focus:outline-none"
+                  >
+                    ➕ Append Design Audit to Critique Draft
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Compiled Critique Draft */}
+            <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
+                  <SparklesIcon className="w-4 h-4 text-indigo-400" />
+                  <span>Evaluation & Critique Draft</span>
+                </h4>
+                {!isReadOnly && !project.isLocked && (
+                  <button
+                    onClick={handleGenerateAISummary}
+                    disabled={isGeneratingSummary}
+                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-[11px] font-bold transition-all flex items-center space-x-1"
+                  >
+                    <span>{isGeneratingSummary ? 'Compiling...' : '🔄 Compile Feedback'}</span>
+                  </button>
+                )}
+              </div>
+
+              <textarea
+                value={editableSummary}
+                onChange={(e) => setEditableSummary(e.target.value)}
+                rows={10}
+                className="w-full p-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-300 font-mono focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                placeholder="Click 'Compile Feedback' or run Design Audit to generate a complete student report..."
+              />
+
+              {!isReadOnly && !project.isLocked && editableSummary && (
+                <button
+                  onClick={handleSaveEditableSummary}
+                  className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg transition-all"
+                >
+                  💾 Save Draft Critique
                 </button>
               )}
             </div>
 
-            <div className="space-y-3">
-              <textarea
-                value={editableSummary}
-                onChange={(e) => setEditableSummary(e.target.value)}
-                rows={14}
-                className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 font-mono focus:outline-none resize-none leading-relaxed"
-                placeholder="# Markdown evaluation summary..."
-              />
-              {!isReadOnly && !project.isLocked && editableSummary && (
-                <button
-                  onClick={handleSaveEditableSummary}
-                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg transition-all"
-                >
-                  Save Edited Markdown
-                </button>
-              )}
-            </div>
+            {/* 3. Publish Control */}
+            {!isReadOnly && (
+              <div className="bg-indigo-950/40 border border-indigo-900/40 p-4 rounded-xl space-y-3">
+                <h4 className="text-xs font-bold text-indigo-200 uppercase tracking-wider">🚀 Send Final Feedback to Student</h4>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Publishing locks this submission and sends your pins, rubric checklist, and critique report directly to the student portal.
+                </p>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => handlePublishReview('changes_required')}
+                    className="py-2.5 bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-700/60 text-xs font-bold rounded-lg transition-all"
+                  >
+                    ⚠️ Request Changes
+                  </button>
+                  <button
+                    onClick={() => handlePublishReview('submit_ready')}
+                    className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all shadow-md"
+                  >
+                    🚀 Mark Submit Ready / Pass
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1361,17 +1522,17 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
         )}
       </div>
 
-      {/* Floating Action Card Footer for Submitting/Publishing review */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-slate-950 border-t border-slate-800/80 flex flex-col space-y-2.5 z-20 shadow-2xl">
-        <div className="flex justify-between items-center text-xs font-semibold text-slate-400 px-1">
-          <span>Failed requirements: <strong className="text-red-400 font-bold">{failedChecksCount}</strong></span>
-          <span>Must-fix Blockers: <strong className="text-red-400 font-bold">{openMustFixCount}</strong></span>
+      {/* Fixed Footer for Submitting/Publishing review (Stays inside sidebar column) */}
+      <div className="flex-shrink-0 p-3.5 bg-slate-950 border-t border-slate-800/80 flex flex-col space-y-2 z-20 shadow-2xl">
+        <div className="flex justify-between items-center text-[11px] font-bold text-slate-400 px-1">
+          <span>Rubric Failed: <strong className="text-red-400">{failedChecksCount}</strong></span>
+          <span>Blockers: <strong className="text-red-400">{openMustFixCount}</strong></span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={handleExportReview}
-            className="py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-xs font-bold shadow border border-slate-700/80 transition-all"
+            className="py-2 bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-bold border border-slate-750 transition-all"
           >
             Export JSON
           </button>
@@ -1379,16 +1540,16 @@ export const CommentSidebarV2: React.FC<CommentSidebarV2Props> = ({
           {!isReadOnly && !project.isLocked ? (
             <button
               onClick={() => setIsPublishModalOpen(true)}
-              className="py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/10 transition-all"
+              className="py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md transition-all"
             >
               Publish Review
             </button>
           ) : (
             <button
               disabled
-              className="py-2.5 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold border border-slate-850 cursor-not-allowed"
+              className="py-2 bg-slate-800 text-slate-500 rounded-lg text-xs font-bold border border-slate-850 cursor-not-allowed"
             >
-              Published
+              Published / Locked
             </button>
           )}
         </div>

@@ -10,6 +10,7 @@ import { api } from "./convex/_generated/api";
 import { LoginGate } from './components/LoginGate';
 import { StudentSubmission } from './components/StudentSubmission';
 import { LandingPage } from './components/LandingPage';
+import { sanitizePayloadForConvex } from './utils/imageCompressor';
 
 const App: React.FC = () => {
   const dbProjects = useQuery(api.projects.getProjects);
@@ -207,12 +208,12 @@ const App: React.FC = () => {
     if (projArgs.screenshots) dbPayload.screenshots = projArgs.screenshots;
     dbPayload.notes = serializedNotes;
 
-    return dbPayload;
+    return sanitizePayloadForConvex(dbPayload);
   }, []);
 
   const handleCreateProject = useCallback(async (name: string, type: ContentType, content: string) => {
     const projectId = `proj-${Date.now()}`;
-    await createProjectMutation({
+    const payload = sanitizePayloadForConvex({
       id: projectId,
       name,
       type,
@@ -221,6 +222,7 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString(),
       isLocked: false,
     });
+    await createProjectMutation(payload);
     setSelectedProjectId(projectId);
   }, [createProjectMutation]);
 

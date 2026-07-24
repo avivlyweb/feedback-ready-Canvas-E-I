@@ -125,8 +125,8 @@ export const generateV2EvaluationSummary = async (
     ### 🟢 3. Areas of Strength & Praise
     Praise what is done exceptionally well (e.g., visual layout clean, secure preflight passing, checklist compliance, etc.).
 
-    ### 🛠️ 4. Actionable Coding & Layout Advice
-    Give clear, educational coding tips or CSS layout advice to help the student fix the identified bugs. Keep the tone encouraging, technical, and constructive.
+    ### 🛠️ 4. Actionable Design & Builder Advice
+    Give clear, encouraging, non-technical advice on how to fix layout or readability issues in visual web builders (e.g. Wix, WordPress, Glide, or Lovable). Do NOT include raw CSS code snippets or HTML code blocks, as students do not understand code. Keep the tone warm, clear, and constructive.
 
     Produce the evaluation draft in structured markdown. Do not include placeholders, return a complete draft.
   `;
@@ -243,3 +243,106 @@ export const analyzeImages = async (images: { base64Data: string; mimeType: stri
     return "An error occurred while generating the visual analysis. Please check the console for details.";
   }
 };
+
+export const analyzeWebsiteDesign = async (
+  url: string, 
+  productType: 'patient' | 'student',
+  base64Screenshot?: string
+): Promise<string> => {
+  if (!API_KEY) {
+    return "AI functionality is disabled. Please configure your API_KEY.";
+  }
+
+  const prompt = `
+    You are an elite, highly critical UX/UI Design Auditor, Creative Director, and senior academic evaluator for the "Education and Innovation (E&I)" physiotherapy course at Amsterdam University of Applied Sciences (AUAS) / European School of Physiotherapy (ESP).
+
+    Analyze the following website URL:
+    Website URL: ${url}
+    Product Type Focus: ${productType === 'patient' ? 'Patient Education Product (supporting patients in understanding a condition, behavior change, tracking progress, etc.)' : 'Student Education Product (supporting students in learning, practising, applying, or assessing knowledge and skills)'}
+
+    ${base64Screenshot ? 'You are also provided with a direct visual screenshot snapshot of the student website page/viewport canvas. Please carefully analyze the visual layout, color contrast, typography, spacing, component alignments, and visual hierarchy from the image provided!' : ''}
+
+    Please review the design, look and feel, colors, user experience (UX), and user interface (UI) of this website. Your review must be tailored to physiotherapy students who are NOT software developers. They are using visual web builders like Wix, WordPress, Glide, or Lovable.
+    
+    CRITICAL CONSTRAINT: 
+    - DO NOT output ANY code blocks, CSS classes, HTML wrappers, or code snippets (such as <div style="..."> or .feedback-box {...}). Students do NOT understand code. This is a critical requirement. Instead, describe structural layout modifications, margins, and settings in plain, visual English terms.
+    - Be direct, highly critical, and honest about amateur design flaws (e.g. inconsistent spacing, uninspiring templates, cluttered layouts, generic clinical stock images, and low-contrast typography). Give realistic "tough love" feedback so they can improve their score on the official rubric.
+    - The audit must align with the E&I Course Guidelines:
+      1. Central Online Environment (homepage + at least 3 content pages).
+      2. Directly embedded self-produced educational video (16:9 landscape, YouTube recommended, playable directly without a separate login).
+      3. Directly embedded interactive form, quiz, or tracking tool that provides automated, personalized feedback (NOT just a score, but explanation feedback that helps them understand the answers or outcomes without leaving the site).
+      4. Custom privacy policy (complying with GDPR/privacy standards) and cookie/data processing disclosure where necessary.
+      5. No placeholder text, dummy images, broken hyperlinks, or test elements.
+      6. Good accessibility: legible text, high color contrast, responsive layout on mobile & desktop, and meaningful link labels.
+
+    Format your response beautifully in Markdown with these specific sections:
+
+    ### 🎨 AI Website Design & UX Audit Report
+
+    #### 🌈 1. Brand Identity & Look and Feel ("The Vibe Check")
+    - Evaluate the first impression of the website. Does it feel like a cohesive, human-centered educational product, or does it feel like a cold, sterile corporate clinic template?
+    - Be honest: point out if the visual hierarchy is lacking or if the imagery feels uninspiring. Suggest concrete ways to make the overall feel more engaging and empathetic for the target audience.
+
+    #### 🎨 2. Color Palette & Contrast Accessibility
+    - Critique the color choices. Identify specific contrast issues (e.g., light-colored text on light backgrounds, orange text on white) that make it hard to read.
+    - Remind them of WCAG AA standards (text needs to contrast sharply with the background, at least a 4.5:1 ratio) in simple terms. Suggest which colors to keep for text and which ones should only be used for buttons or accents.
+
+    #### ✍️ 3. Typography & Page Layout
+    - Assess font pairings (are they using too many different fonts, or are they too boring?).
+    - Critique the layout density: is it a "wall of text" that will overwhelm patients or students? Is there enough blank space (negative space) for the eyes to rest?
+    - Advise them on how to break up text blocks using headings, lists, or card grids.
+
+    #### 📱 4. Mobile Responsiveness & Real-World Usability
+    - Point out how their elements might wrap or get squished on mobile screens.
+    - Discuss touch-target issues (buttons and links must be large enough to tap easily, especially for patients with finger stiffness or pain).
+    - Give visual builder-friendly advice on how to group and stack elements for mobile.
+
+    #### 🔄 5. Required Component Embedding Integrity
+    - Evaluate how the educational video and the interactive form/quiz should be integrated into their pages.
+    - Remind them why linking out to an external YouTube tab, Google Form, or Typeform is a major grading violation.
+    - Give advice on how to style the feedback card/results box inside their visual builder so it stands out and provides rich, personalized educational advice.
+
+    #### ⚖️ 6. Legal, Privacy & Compliance Warnings
+    - Address the sensitive health data aspect of their quiz or tracker (GDPR compliance).
+    - Remind them to add a customized privacy policy and cookie notice.
+    - Warn them to remove all "Lorem Ipsum" text, placeholder images, and generic builder credits (like "Created with Wix").
+
+    #### 🚀 Actionable Design Fixes (Your No-Code To-Do List)
+    Provide 3-4 specific, simple, non-technical steps they can execute immediately in Wix, WordPress, Glide, or Lovable to level-up their design. Frame these as clear visual tasks (e.g., "In your style settings, change the text link color from orange to dark blue to fix readability," or "Double the empty space above and below your video player").
+
+    Keep your assessment realistic, direct, highly relevant to ${url}, and fully aligned with the AUAS/ESP guidelines. Do NOT include any CSS classes or HTML style attributes.
+  `;
+
+  try {
+    let contents: any = prompt;
+
+    if (base64Screenshot) {
+      // Strip header if data URL format
+      const cleanBase64 = base64Screenshot.includes('base64,') 
+        ? base64Screenshot.split('base64,')[1] 
+        : base64Screenshot;
+
+      contents = {
+        parts: [
+          {
+            inlineData: {
+              data: cleanBase64,
+              mimeType: 'image/jpeg'
+            }
+          },
+          { text: prompt }
+        ]
+      };
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: contents,
+    });
+    return response.text || "No response received from Gemini.";
+  } catch (error) {
+    console.error("Error calling Gemini API for design audit:", error);
+    return "An error occurred while compiling the AI Design Audit.";
+  }
+};
+

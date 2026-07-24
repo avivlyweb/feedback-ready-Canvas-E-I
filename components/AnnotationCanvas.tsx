@@ -154,7 +154,7 @@ const ScreenshotTool: React.FC<ScreenshotToolProps> = ({ imageElement, container
     
     if (ctx && clampedSWidth > 0 && clampedSHeight > 0) {
       ctx.drawImage(imageElement, clampedSx, clampedSy, clampedSWidth, clampedSHeight, 0, 0, clampedSWidth, clampedSHeight);
-      onScreenshot(canvas.toDataURL('image/png'));
+      onScreenshot(canvas.toDataURL('image/jpeg', 0.8));
     } else {
       onCancel();
     }
@@ -192,7 +192,7 @@ const ScreenshotTool: React.FC<ScreenshotToolProps> = ({ imageElement, container
       ctx.clip();
       ctx.drawImage(imageElement, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
       ctx.restore();
-      onScreenshot(canvas.toDataURL('image/png'));
+      onScreenshot(canvas.toDataURL('image/jpeg', 0.8));
     } else {
       onCancel();
     }
@@ -997,7 +997,7 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
 
       {/* Floating Bottom Navigation Toolbar */}
       {!isReadOnly && !project.isLocked && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur border border-slate-800 rounded-full shadow-2xl p-1.5 flex items-center space-x-3.5 z-50 max-w-[90vw] overflow-x-auto select-none">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur border border-slate-750 rounded-full shadow-2xl p-1.5 flex items-center space-x-2 sm:space-x-3 z-30 max-w-[94vw] overflow-x-auto select-none">
           {/* Section A: Critique Actions */}
           <div className="flex items-center space-x-1 flex-shrink-0">
             <button
@@ -1007,15 +1007,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 if (mode === 'browse') onSelectPin(null);
                 onSetMode('comment');
               }}
-              className={`px-3.5 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
                 !isBrushMode && mode === 'comment' 
-                  ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                  ? 'bg-indigo-600 text-white shadow-md' 
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
-              title="Add interactive comments"
+              title="Add interactive comment pins"
             >
               <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" />
-              <span className="hidden sm:inline">Comment Pin</span>
+              <span>Comment Pin</span>
             </button>
 
             <button
@@ -1023,15 +1023,15 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                 e.stopPropagation();
                 handleSetBrushMode(true);
               }}
-              className={`px-3.5 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
                 isBrushMode 
-                  ? 'bg-purple-600 text-white shadow-md scale-105' 
+                  ? 'bg-purple-600 text-white shadow-md' 
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
               title="Draw highlights and annotations"
             >
               <span className="text-sm">✏️</span>
-              <span className="hidden sm:inline">Highlight Brush</span>
+              <span className="hidden xs:inline">Highlight Brush</span>
             </button>
 
             {project.type === ContentType.URL && (
@@ -1042,53 +1042,53 @@ const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
                   if (mode === 'comment') onSelectPin(null);
                   onSetMode('browse');
                 }}
-                className={`px-3.5 py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full flex items-center space-x-1.5 text-xs font-bold transition-all ${
                   !isBrushMode && mode === 'browse' 
-                    ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                    ? 'bg-indigo-600 text-white shadow-md' 
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
                 title="Browse & click around the website"
               >
                 <CursorArrowRaysIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Browse Site</span>
+                <span className="hidden xs:inline">Browse Site</span>
               </button>
             )}
           </div>
 
-          {/* Vertical Divider (if viewport switches are active) */}
+          {/* Vertical Divider */}
           {project.type === ContentType.URL && (
-            <div className="h-6 w-px bg-slate-800 flex-shrink-0" />
+            <div className="h-5 w-px bg-slate-800 flex-shrink-0" />
           )}
 
-          {/* Section B: Integrated Responsive Viewport Switcher */}
+          {/* Section B: Responsive Viewport Switcher */}
           {project.type === ContentType.URL && (
-            <div className="flex items-center space-x-1 pr-1 bg-slate-950/60 p-0.5 rounded-full border border-slate-850">
+            <div className="flex items-center space-x-0.5 sm:space-x-1 bg-slate-950/80 p-0.5 rounded-full border border-slate-800 flex-shrink-0">
               <button 
                 onClick={() => setIframeWidth(viewports.mobile)} 
-                title="Mobile viewport (375px)" 
-                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.mobile ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                title="Mobile (375px)" 
+                className={`p-1.5 sm:p-2 rounded-full transition-all ${iframeWidth === viewports.mobile ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <DevicePhoneMobileIcon className="w-3.5 h-3.5" />
               </button>
               <button 
                 onClick={() => setIframeWidth(viewports.tablet)} 
-                title="Tablet viewport (1024px)" 
-                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.tablet ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                title="Tablet (1024px)" 
+                className={`p-1.5 sm:p-2 rounded-full transition-all ${iframeWidth === viewports.tablet ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <DeviceTabletIcon className="w-3.5 h-3.5" />
               </button>
               <button 
                 onClick={() => setIframeWidth(viewports.desktop)} 
-                title="Desktop viewport (1440px)" 
-                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.desktop ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                title="Desktop (1440px)" 
+                className={`p-1.5 sm:p-2 rounded-full transition-all ${iframeWidth === viewports.desktop ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <ComputerDesktopIcon className="w-3.5 h-3.5" />
               </button>
-              <div className="h-4 w-px bg-slate-800 mx-1" />
+              <div className="h-4 w-px bg-slate-800 mx-0.5" />
               <button 
                 onClick={() => setIframeWidth(viewports.full)} 
-                title="Full width viewport" 
-                className={`p-2 rounded-full transition-all ${iframeWidth === viewports.full ? 'bg-indigo-600 text-white scale-105 shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                title="Full width" 
+                className={`p-1.5 sm:p-2 rounded-full transition-all ${iframeWidth === viewports.full ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <ArrowsPointingOutIcon className="w-3.5 h-3.5" />
               </button>

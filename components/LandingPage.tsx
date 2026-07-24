@@ -821,7 +821,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectRole }) => {
         )}
       </AnimatePresence>
 
-      {/* Modal 3: Course Rubric Guidelines */}
+      {/* Modal 3: E&I Course Manual & Assessment Rubric */}
       <AnimatePresence>
         {isRubricOpen && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -833,7 +833,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectRole }) => {
             >
               <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-base font-black text-white">ESP Course Rubric & 10-Point Checklist</h3>
+                  <h3 className="text-base font-black text-white">🎓 E&I Course Manual & Rubric Requirements</h3>
                 </div>
                 <button
                   onClick={() => setIsRubricOpen(false)}
@@ -844,64 +844,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectRole }) => {
                   </svg>
                 </button>
               </div>
-              <div className="p-6 space-y-4 max-h-[50vh] overflow-y-auto text-xs leading-relaxed text-slate-300 font-semibold">
-                <p>
-                  To earn a "Submit Ready" status in our Web curriculum, every student web application is systematically assessed against these rigorous criteria:
-                </p>
-                <div className="space-y-4 bg-slate-950/40 p-4 rounded-xl border border-slate-800/80">
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto text-xs leading-relaxed text-slate-300 font-semibold">
+                <div className="bg-indigo-950/40 border border-indigo-900/50 p-3.5 rounded-xl text-indigo-200">
+                  <span className="font-bold text-white block">European School of Physiotherapy (ESP) / AUAS</span>
+                  <span>Semester 5 (2026-2027) • Course Lecturers: Bas Moed, Aviv Hidrian, Maggie Janisch</span>
+                </div>
+
+                <h4 className="text-white font-extrabold text-sm pt-1">The 3 Required Product Components (The E&I Triad)</h4>
+                
+                <div className="space-y-3 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
                   <div className="flex items-start space-x-3">
-                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">01</span>
+                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">1.</span>
                     <div>
-                      <span className="text-white font-extrabold block">Cookie Consent Banner</span>
-                      <p className="text-slate-400 text-[11px]">User consent must be explicitly gathered with options before storing local states.</p>
+                      <span className="text-white font-extrabold block">Central Online Environment</span>
+                      <p className="text-slate-400 text-[11px]">Website or app with a homepage + at least 3 content pages in English. No placeholder text ("Lorem Ipsum"), broken links, or dummy images.</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-3">
-                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">02</span>
+                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">2.</span>
                     <div>
-                      <span className="text-white font-extrabold block">WebAIM Contrast Alignment</span>
-                      <p className="text-slate-400 text-[11px]">All text must pass the WCAG AA contrast ratio of at least 4.5:1 for accessibility.</p>
+                      <span className="text-white font-extrabold block">Embedded 16:9 Educational Video</span>
+                      <p className="text-slate-400 text-[11px]">Self-produced, embedded directly inline (YouTube recommended). At least 1 student must appear and speak on camera for 30+ seconds. Playable without external redirects.</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-3">
-                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">03</span>
+                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">3.</span>
                     <div>
-                      <span className="text-white font-extrabold block">Breakpoint Wrapping Flow</span>
-                      <p className="text-slate-400 text-[11px]">Menus and content layouts must scale properly to 320px width without breaking structures or causing scroll-x lines.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">04</span>
-                    <div>
-                      <span className="text-white font-extrabold block">Semantic Headers Nesting</span>
-                      <p className="text-slate-400 text-[11px]">Logical and sequential tag hierarchy from h1 down to h4 elements.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">05</span>
-                    <div>
-                      <span className="text-white font-extrabold block">Accessible Labels Matching</span>
-                      <p className="text-slate-400 text-[11px]">Every text input block must have an explicitly linked label with matching ID.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <span className="text-indigo-400 font-bold shrink-0 mt-0.5">06</span>
-                    <div>
-                      <span className="text-white font-extrabold block">Active SSL Protection</span>
-                      <p className="text-slate-400 text-[11px]">No unencrypted external files, assets, or scripts. Mandatory HTTPS access.</p>
+                      <span className="text-white font-extrabold block">Embedded Interactive Form / Quiz</span>
+                      <p className="text-slate-400 text-[11px]">Embedded directly inside the site. Provides automated, personalized feedback based on user input (not just a raw score!). No external tab redirects.</p>
                     </div>
                   </div>
                 </div>
-                <p>
-                  Workspace 2.0 tracks each metric systematically, helping students and reviewers deploy compliant work fast.
-                </p>
+
+                <h4 className="text-white font-extrabold text-sm pt-1">Key Compliance & Rubric Checks</h4>
+                <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+                  <li><strong className="text-slate-200">Written Justification:</strong> Explaining educational choices, video script, form logic, and legal aspects.</li>
+                  <li><strong className="text-slate-200">GDPR & Privacy Policy:</strong> Link to custom privacy policy for sensitive data/quizzes.</li>
+                  <li><strong className="text-slate-200">Design & Accessibility:</strong> High contrast, no code blocks, clean mobile wrapping, readable fonts.</li>
+                  <li><strong className="text-slate-200">Peer Reviews:</strong> Review at least 2 peers before final submission deadline.</li>
+                </ul>
               </div>
               <div className="p-6 bg-slate-950/60 border-t border-slate-800 flex justify-end">
                 <button
                   onClick={() => setIsRubricOpen(false)}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-all focus:outline-none"
                 >
-                  Back to Overview
+                  Close & Continue
                 </button>
               </div>
             </motion.div>

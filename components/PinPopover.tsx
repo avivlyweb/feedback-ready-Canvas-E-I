@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Pin, CommentStatus, Comment, ContentType } from '../types';
 import { CheckCircleIcon, XMarkIcon, PaperClipIcon, CameraIcon, TrashIcon } from './icons';
+import { compressImage } from '../utils/imageCompressor';
 
 interface PinPopoverProps {
   pin: Pin;
@@ -36,18 +37,19 @@ const PinPopover: React.FC<PinPopoverProps> = ({ pin, onAddComment, onDeleteComm
   const [attachment, setAttachment] = useState<NonNullable<Comment['attachment']> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compressed = await compressImage(file, 800, 800, 0.75);
         setAttachment({
-          data: reader.result as string,
+          data: compressed,
           name: file.name,
-          type: file.type
+          type: 'image/jpeg'
         });
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Error compressing attachment:', err);
+      }
     }
   };
 
