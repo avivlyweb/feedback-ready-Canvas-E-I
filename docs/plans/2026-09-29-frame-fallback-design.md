@@ -10,7 +10,7 @@ The September source directory is missing. Vercel retained the exact prebuilt pr
 
 ## Architecture
 
-Use a separate Vercel project and origin for untrusted student HTML. Its `/api/frame` endpoint validates public HTTP(S) targets, follows validated redirects, and redirects directly to sites that permit framing. For blocked HTML it rewrites the document base and browser history, injects the CanvasFeedback agent with an absolute URL, removes frame-denial headers, and returns a CSP sandbox without `allow-same-origin`.
+Use a separate Vercel project and origin for untrusted student HTML. Its `/api/frame` endpoint validates public HTTP(S) targets, follows validated redirects, and redirects directly to sites that permit framing. For blocked HTML it rewrites the document base and browser history, injects the CanvasFeedback agent with an absolute URL, and removes frame-denial headers. A CSP sandbox without `allow-same-origin` was tested but Base44 fails because its runtime reads `localStorage`; the separate origin therefore provides the mandatory isolation boundary.
 
 The parent canvas points URL projects to the frame service. The existing shoulder-rehab `srcDoc` example remains unchanged. Parent `postMessage` handling accepts only the configured frame origin or the original student origin. A lightweight `check=1` request supplies the preview badge state. The original URL remains available through an “Open live site” control.
 
