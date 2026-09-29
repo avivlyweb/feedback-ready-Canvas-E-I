@@ -10,6 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.vercel
+.env
+.env.*
+.env.local
+.worktrees/
 *.local
 
 # Editor directories and files
