@@ -60,7 +60,7 @@ export function rewriteHtml(html: string, finalUrl: URL, agentUrl: string): stri
   const baseUrl = `${finalUrl.origin}/`;
   const route = `${finalUrl.pathname}${finalUrl.search}${finalUrl.hash}`;
   const serializedRoute = JSON.stringify(route).replaceAll("<", "\\u003c");
-  const headPrefix = `<base href="${escapeAttribute(baseUrl)}"><script>try{history.replaceState(history.state,"",${serializedRoute})}catch(e){}</script>`;
+  const headPrefix = `<base href="${escapeAttribute(baseUrl)}"><script>try{history.replaceState(history.state,"",location.origin+${serializedRoute})}catch(e){}</script>`;
   const agent = `<script src="${escapeAttribute(agentUrl)}"></script>`;
 
   let rewritten: string;
@@ -99,12 +99,9 @@ export async function fetchTarget(input: string, signal: AbortSignal, maxRedirec
   throw new Error("Too many redirects");
 }
 
-export const PROXY_CSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads";
-
 export function proxyHeaders(): Headers {
   return new Headers({
     "cache-control": "no-store",
-    "content-security-policy": PROXY_CSP,
     "content-type": "text/html; charset=utf-8",
     "referrer-policy": "no-referrer",
     "x-canvasfeedback-mode": "proxied",

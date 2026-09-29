@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assertSafeUrl,
   isFramingBlocked,
+  proxyHeaders,
   rewriteHtml,
 } from "../lib/frame.ts";
 
@@ -47,6 +48,10 @@ test("rewrites blocked HTML for the real SPA route and absolute agent", () => {
 
   assert.doesNotMatch(result, /href=['"]\/old\//);
   assert.match(result, /^<html><head><base href="https:\/\/concussion-clarity\.base44\.app\/">/);
-  assert.match(result, /history\.replaceState\(history\.state,"","\/return-to-play\?mode=student#hero"\)/);
+  assert.match(result, /history\.replaceState\(history\.state,"",location\.origin\+"\/return-to-play\?mode=student#hero"\)/);
   assert.match(result, /<script src="https:\/\/canvasfeedback-frame\.vercel\.app\/agent\.js"><\/script>/);
+});
+
+test("does not use CSP sandbox because Base44 requires localStorage", () => {
+  assert.equal(proxyHeaders().has("content-security-policy"), false);
 });

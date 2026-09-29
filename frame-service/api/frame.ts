@@ -1,4 +1,5 @@
-import { fetchTarget, isFramingBlocked, proxyHeaders, rewriteHtml } from "../lib/frame.ts";
+import { fetchTarget, isFramingBlocked, proxyHeaders, rewriteHtml } from "../lib/frame.js";
+import { absoluteRequestUrl, writeNodeResponse, type NodeResponseLike } from "../lib/http.js";
 
 function json(payload: unknown, status = 200): Response {
   return Response.json(payload, {
@@ -10,10 +11,16 @@ function json(payload: unknown, status = 200): Response {
   });
 }
 
-export default async function handler(request: Request): Promise<Response> {
+interface NodeRequestLike {
+  method?: string;
+  url?: string;
+  headers: Headers | Record<string, string | string[] | undefined>;
+}
+
+async function handle(request: NodeRequestLike): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
 
-  const requestUrl = new URL(request.url);
+  const requestUrl = absoluteRequestUrl(request.url || "/", request.headers);
   const target = requestUrl.searchParams.get("url");
   if (!target) return json({ error: "Missing url" }, 400);
 
@@ -43,4 +50,8 @@ export default async function handler(request: Request): Promise<Response> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export default async function handler(request: NodeRequestLike, response: NodeResponseLike): Promise<void> {
+  await writeNodeResponse(await handle(request), response);
 }
